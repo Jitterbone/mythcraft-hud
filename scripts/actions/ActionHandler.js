@@ -30,32 +30,38 @@ export class ActionHandler {
     }
 
     // Helper: Get attribute value from actor
-
     static getAttributeValue(actor, attributeKey) {
         if (!attributeKey) return 0;
         const attributes = actor.system.attributes || {};
         const key = attributeKey.toLowerCase();
+
+        // Direct match first (e.g., 'str', 'dex')
         if (attributes[key] !== undefined) return attributes[key];
 
-        // Common alias map
-        const aliasMap = {
-            con: ['end','stamina'], end: ['con','stamina'],
-            awa: ['awr','per','perception'], awr: ['awa','per','perception'],
-            dex: ['agi','agility'], agi: ['dex','agility'],
-            lck: ['luck'], luck: ['lck']
+        // Alias map, mapping various inputs to the canonical key (e.g., 'strength' -> 'str')
+        const canonicalMap = {
+            'strength': 'str',
+            'dexterity': 'dex', 'agi': 'dex', 'agility': 'dex',
+            'constitution': 'con', 'end': 'con', 'endurance': 'con', 'stamina': 'con',
+            'intelligence': 'int',
+            'awareness': 'awa', 'per': 'awa', 'perception': 'awa', 'wis': 'awa', 'wisdom': 'awa',
+            'charisma': 'cha',
+            'luck': 'lck'
         };
 
-        const aliases = aliasMap[key] || [];
-        for (const a of aliases) {
-            if (attributes[a] !== undefined) return attributes[a];
+        const canonicalKey = canonicalMap[key];
+        if (canonicalKey && attributes[canonicalKey] !== undefined) {
+            return attributes[canonicalKey];
+        }
+        
+        // If the input was a canonical key itself (e.g. 'dex'), check its full-name aliases
+        const reverseAliasMap = { 'dex': ['dexterity', 'agility'], 'con': ['endurance'], 'awa': ['awareness', 'perception'] };
+        const aliases = reverseAliasMap[key] || [];
+        for (const alias of aliases) {
+            if (attributes[alias] !== undefined) return attributes[alias];
         }
 
-        // Fallback: try fuzzy match by key inclusion
-        for (const k of Object.keys(attributes)) {
-            if (k.toLowerCase().includes(key) || key.includes(k.toLowerCase())) return attributes[k];
-        }
-
-        return 0;
+        return 0; // Return 0 if no match is found, removing the dangerous fuzzy match
     }
 
     // Helper: Scrape damage/effect info from description

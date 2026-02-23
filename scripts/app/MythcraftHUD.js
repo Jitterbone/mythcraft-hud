@@ -232,49 +232,45 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         }
     }
 
-    _onRender(context, options) {
-        document.body.classList.add("myth-hud-active");
-        const html = $(this.element);
+    _renderGMCharacterSwitcher(html, context) {
+        if (!context.isGM || !context.gmCharacters || context.gmCharacters.length === 0) return;
 
-        // --- GM CHARACTER SWITCHER ---
-        if (context.isGM && context.gmCharacters && context.gmCharacters.length > 0) {
-            // Build HTML
-            const charListHtml = `
-                <div class="hud-gm-char-list">
-                    ${context.gmCharacters.map(c => `
-                        <div class="hud-gm-char-card ${c.isActive ? 'active' : ''}" data-actor-id="${c.id}" title="${c.name}">
-                            <img src="${c.img}">
-                        </div>
-                    `).join('')}
-                </div>
-            `;
-            
-            // Remove existing if any (to prevent dupes on re-render)
-            html.find('.hud-gm-char-list').remove();
-            
-            // Inject logic
-            const rightCol = html.find('.hud-right-column');
-            if (rightCol.length > 0) {
-                 // If full HUD is showing, prepend to right column
-                 rightCol.prepend(charListHtml);
-            } else {
-                // Blank mode - prepend to main app
-                html.prepend(charListHtml);
-            }
+        const charListHtml = `
+            <div class="hud-gm-char-list">
+                ${context.gmCharacters.map(c => `
+                    <div class="hud-gm-char-card ${c.isActive ? 'active' : ''}" data-actor-id="${c.id}" title="${c.name}">
+                        <img src="${c.img}">
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        
+        html.find('.hud-gm-char-list').remove();
+        
+        const rightCol = html.find('.hud-right-column');
+        if (rightCol.length > 0) {
+             rightCol.prepend(charListHtml);
+        } else {
+            html.prepend(charListHtml);
         }
 
-        // Re-attach listener for GM character switcher. The event delegation for these
-        // dynamically injected elements was not working reliably after a refactor.
         html.find('.hud-gm-char-card').on('click', (event) => {
             event.preventDefault();
             const actorId = event.currentTarget.dataset.actorId;
             const actor = game.actors.get(actorId);
             if (actor) {
-                this.activeToken = null; // Deselect token preference
-                this.actor = actor; // Set fallback actor
+                this.activeToken = null;
+                this.actor = actor;
                 this.render({ force: true });
             }
         });
+    }
+
+    _onRender(context, options) {
+        document.body.classList.add("myth-hud-active");
+        const html = $(this.element);
+
+        this._renderGMCharacterSwitcher(html, context);
 
         // --- EVENT LISTENERS ---
         // The ApplicationV2 'events' object seems unreliable for this persistent,

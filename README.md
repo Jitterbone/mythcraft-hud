@@ -193,17 +193,17 @@ This repository is configured with a GitHub Actions workflow to automate the rel
 ### The Release Workflow
 1.  **Update Version**: In `module.json`, increment the `version` number. For pre-releases, use a suffix like `-beta`.
     ```json
-    "version": "0.8.1-beta"
+    "version": "0.8.2-beta"
     ```
 2.  **Commit and Push**: Commit the `module.json` change to your `main` branch.
     ```sh
-    git commit -m "Prepare release v0.8.1-beta"
+    git commit -m "Prepare release v0.8.2-beta"
     git push origin main
     ```
 3.  **Create and Push a Git Tag**: Create a tag that matches the version in `module.json` (prefixed with `v`) and push it to GitHub. This triggers the automation.
     ```sh
-    git tag v0.8.1-beta
-    git push origin v0.8.1-beta
+    git tag v0.8.2-beta
+    git push origin v0.8.2-beta
     ```
 
 The GitHub Action will then automatically build the release, and your manifest URL will work correctly.
@@ -211,7 +211,7 @@ The GitHub Action will then automatically build the release, and your manifest U
 #### Troubleshooting a Failed Release
 If the GitHub Action fails with an `already_exists` error, you must delete the failed tag from GitHub before retrying.
 ```sh
-git tag -d v0.8.1-beta && git push --delete origin v0.8.1-beta
+git tag -d v0.8.2-beta && git push --delete origin v0.8.2-beta
 ```
 
 ## License
