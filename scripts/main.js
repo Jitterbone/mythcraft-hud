@@ -1,0 +1,411 @@
+import { MythcraftHUD } from './app/MythcraftHUD.js';
+import { ActionHandler } from './actions/ActionHandler.js';
+
+let hudInstance;
+
+Hooks.once('init', () => {
+    Handlebars.registerHelper('capitalize', function(str) {
+        if (typeof str !== 'string') return '';
+        return str.charAt(0).toUpperCase() + str.slice(1);
+    });
+
+    // Register Settings
+    game.settings.register('mythcraft-hud', 'hudScale', {
+        name: "HUD Scale",
+        hint: "Adjust the size of the HUD interface.",
+        scope: "client",
+        config: true,
+        type: String,
+        choices: {
+            "small": "Small",
+            "medium": "Medium",
+            "large": "Large",
+            "xlarge": "Extra Large"
+        },
+        default: "medium",
+        onChange: value => {
+            const scaleMap = { "small": 0.8, "medium": 1.0, "large": 1.2, "xlarge": 1.4 };
+            const scale = scaleMap[value] || 1.0;
+            document.documentElement.style.setProperty('--myth-hud-scale', scale);
+        }
+    });
+
+    game.settings.register('mythcraft-hud', 'disableDiceSounds', {
+        name: "Disable Dice Sounds",
+        hint: "Mute the sound effect when rolling dice through the HUD.",
+        scope: "client",
+        config: true,
+        type: Boolean,
+        default: false
+    });
+
+    // 1. Dialog & Popup Overhaul (CSS Variables)
+    const style = document.createElement('style');
+    style.innerHTML = `
+        :root {
+            --color-bg: #111111;
+            --color-text: #fdfaf3;
+            --color-border: #d3c4a3;
+            --color-blue: #3498db;
+            --color-red: #e74c3c;
+        }
+    `;
+    document.head.appendChild(style);
+
+   // Template override for chat messages
+    // WARNING: This is a monkey patch of a core Foundry method. It is powerful but can be fragile.
+    // If chat message creation breaks in a future Foundry version, this is a likely place to investigate.
+    // The goal is to intercept all rolls and re-format them into a custom statblock card.
+    const originalCreate = ChatMessage.create;
+    ChatMessage.create = async function(data, options = {}) {
+        const dataArray = Array.isArray(data) ? data : [data];
+        
+        for (const d of dataArray) {
+            // Check if it's a roll and not already styled by our HUD
+            if (d.rolls && d.rolls.length > 0 && !d.content?.includes("mythcraft-statblock")) {
+                
+                // Handle Roll instance or JSON data
+                let roll = d.rolls[0];
+                if (typeof roll === 'string') {
+                    try { roll = JSON.parse(roll); } catch (e) {}
+                }
+                
+                if (!roll) continue;
+
+                // Extract info
+                const total = roll.total;
+                const formula = roll.formula;
+                // Fallback to roll options flavor if message flavor is empty
+                let flavor = d.flavor || roll.options?.flavor || "";
+
+                // Attribute/Skill/Save Detection
+                let resultLabel = "SYSTEM ROLL";
+                let resultClass = "";
+                let buttonHtml = ""; // Action buttons container
+                
+                const flavorLower = flavor.toLowerCase();
+
+                // Attribute list
+                const attributes = [
+                    "strength", "str", 
+                    "agility", "agi", "dexterity", "dex", 
+                    "endurance", "end", "constitution", "con", "stamina",
+                    "intelligence", "int", 
+                    "awareness", "awa", "perception", "per", "wisdom", "wis",
+                    "charisma", "cha",
+                    "luck", "lck"
+                ];
+
+                // Formula regex
+                const attrMatch = formula.match(/@(attributes?|abilities?|ability)\.([a-zA-Z0-9_]+)/i);
+                const skillMatch = formula.match(/@skills?\.([a-zA-Z0-9_\-]+)/i);
+                const saveMatch = formula.match(/@saves?\.([a-zA-Z0-9_]+)/i);
+                
+                // Check for Damage/Healing based on options
+                if (roll.options?.isHeal === true) {
+                    resultLabel = "HEALING ROLL";
+                    buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
+                } else if (roll.options?.isHeal === false) {
+                    // It's damage
+                    resultLabel = "DAMAGE ROLL";
+                    if (roll.options.flavor) resultLabel = `${roll.options.flavor.toUpperCase()} DAMAGE`;
+                    buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
+                } else if (roll.options?.attribute) {
+                    const attrKey = roll.options.attribute.toLowerCase();
+                    const attrNames = {
+                        str: "Strength", strength: "Strength",
+                        agi: "Agility", dex: "Dexterity", dexterity: "Dexterity",
+                        end: "Endurance", con: "Constitution", constitution: "Constitution", stamina: "Stamina",
+                        int: "Intelligence", intelligence: "Intelligence",
+                        awa: "Awareness", per: "Perception", perception: "Perception", wis: "Wisdom", wisdom: "Wisdom",
+                        cha: "Charisma", charisma: "Charisma",
+                        lck: "Luck", luck: "Luck"
+                    };
+                    const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
+                    resultLabel = "ATTRIBUTE CHECK";
+                    if (!flavor || flavor === "Roll" || flavor === "System Roll") {
+                        flavor = `${fullName} Check`;
+                    }
+                } else if (attrMatch) {
+                    const attrKey = attrMatch[2].toLowerCase();
+                    const attrNames = {
+                        str: "Strength", strength: "Strength",
+                        agi: "Agility", dex: "Dexterity", dexterity: "Dexterity",
+                        end: "Endurance", con: "Constitution", constitution: "Constitution", stamina: "Stamina",
+                        int: "Intelligence", intelligence: "Intelligence",
+                        awa: "Awareness", per: "Perception", perception: "Perception", wis: "Wisdom", wisdom: "Wisdom",
+                        cha: "Charisma", charisma: "Charisma",
+                        lck: "Luck", luck: "Luck"
+                    };
+                    const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
+                    resultLabel = "ATTRIBUTE CHECK";
+                    if (!flavor || flavor === "Roll" || flavor === "System Roll") {
+                        flavor = `${fullName} Check`;
+                    }
+                } else if (skillMatch) {
+                    const skillKey = skillMatch[1].toLowerCase();
+                    const skillName = skillKey.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+                    resultLabel = "SKILL CHECK";
+                    if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
+                        flavor = `${skillName} Check`;
+                    }
+                } else if (saveMatch) {
+                    const saveKey = saveMatch[1].toLowerCase();
+                    const saveName = saveKey.charAt(0).toUpperCase() + saveKey.slice(1);
+                    resultLabel = "SAVE CHECK";
+                    if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
+                        flavor = `${saveName} Save`;
+                    }
+                } else if (flavorLower.includes("attribute") || flavorLower.includes("ability")) {
+                    resultLabel = "ATTRIBUTE CHECK";
+                } else if (flavorLower.includes("save")) {
+                    resultLabel = "SAVE CHECK";
+                } else if (flavorLower.includes("skill")) {
+                    resultLabel = "SKILL CHECK";
+                } else if (flavorLower.includes("attack")) {
+                    resultLabel = flavor.includes("damage") ? "DAMAGE ROLL" : "ATTACK ROLL";
+                } else if (attributes.some(a => flavorLower.includes(a))) {
+                    resultLabel = "ATTRIBUTE CHECK";
+                } else if (flavorLower.includes("check")) {
+                    resultLabel = "ATTRIBUTE CHECK";
+                } else if (flavor) {
+                    resultLabel = flavor.toUpperCase();
+                }
+
+                // Crit logic
+                let terms = roll.terms;
+                if (!terms && roll.toJSON) terms = roll.terms; // Handle Roll instance
+                
+                if (terms) {
+                    const d20Term = terms.find(t => t.faces === 20);
+                    if (d20Term) {
+                        const result = d20Term.results.find(r => r.active) || d20Term.results[0];
+                        const d20 = (typeof result === 'object') ? result.result : result;
+                        
+                        if (d20 === 20) { 
+                            resultClass = "crit-success"; 
+                            resultLabel = "CRITICAL SUCCESS"; 
+                        } else if (d20 === 1) { 
+                            resultClass = "crit-fail"; 
+                            resultLabel = "CRITICAL FAILURE"; 
+                        }
+                    }
+                }
+
+                // Build new HTML
+                const newContent = `
+                    <div class="mythcraft-statblock">
+                        <div class="card-header">${flavor}</div>
+                        <div class="roll-result ${resultClass}">
+                            <div class="roll-label">${resultLabel}</div>
+                            <div class="roll-value">${total}</div>
+                            <div class="roll-formula">${formula}</div>
+                        </div>
+                        ${buttonHtml}
+                    </div>`;
+                
+                d.content = newContent;
+                d.type = CONST.CHAT_MESSAGE_TYPES.OTHER; // Prevent default roll rendering
+                d.flavor = ""; // Clear flavor to avoid duplication
+                
+                if (!d.sound) d.sound = CONFIG.sounds.dice;
+            }
+        }
+        
+        return originalCreate.call(this, data, options);
+    };
+});
+
+Hooks.once('ready', () => {
+    console.log("Mythcraft HUD | Initializing...");
+    hudInstance = new MythcraftHUD();
+    game.mythHUD = hudInstance; // Expose globally for settings callbacks
+    console.log("Mythcraft HUD | Ready! Select a token to view the HUD.");
+    
+    // Apply HUD Scale
+    const currentScale = game.settings.get('mythcraft-hud', 'hudScale');
+    const scaleMap = { "small": 0.8, "medium": 1.0, "large": 1.2, "xlarge": 1.4 };
+    document.documentElement.style.setProperty('--myth-hud-scale', scaleMap[currentScale] || 1.0);
+    
+    // Register ActionHandler hooks for sheet roll interception
+    ActionHandler.registerHooks();
+    
+    // Persistent Open Logic
+    if (game.user.character) {
+        // Player with assigned character
+        hudInstance.actor = game.user.character;
+        hudInstance.render({ force: true });
+    } else if (game.user.isGM) {
+        // GM Mode - Open blank (will show character switcher)
+        hudInstance.render({ force: true });
+    }
+
+    // Hide Foundry's default hotbar to prevent layout conflicts
+    const hotbar = document.getElementById('hotbar');
+    if (hotbar) {
+        hotbar.style.display = 'none';
+        console.log("Mythcraft HUD | Foundry hotbar hidden.");
+    }
+
+    // --- MONKEY PATCHING SYSTEM ROLLS ---
+    // Intercept system roll functions to redirect output to HUD style
+    const ActorClass = CONFIG.Actor.documentClass;
+
+    // WARNING: This function patches core Actor methods. This is done to intercept system-native
+    // roll dialogs (e.g., from the character sheet) and format their output using the module's
+    // custom chat cards. This is fragile and may break if the Mythcraft system changes its roll methods.
+    const patchSystemRoll = (methodName, typeLabel) => {
+        if (!ActorClass.prototype[methodName]) return;
+        
+        console.log(`Mythcraft HUD | Patching system method: ${methodName}`);
+        const originalMethod = ActorClass.prototype[methodName];
+
+        ActorClass.prototype[methodName] = async function(...args) {
+            // 1. Force system to NOT create chat message
+            // Look for options object in arguments or append it
+            let optionsIdx = args.findIndex(arg => typeof arg === 'object' && arg !== null);
+            if (optionsIdx === -1) {
+                args.push({ chatMessage: false });
+            } else {
+                args[optionsIdx] = foundry.utils.mergeObject(args[optionsIdx], { chatMessage: false });
+            }
+
+            // 2. Call original method (triggers Dialog)
+            const roll = await originalMethod.apply(this, args);
+
+            // 3. Intercept result and redirect to HUD
+            if (roll instanceof Roll) {
+                // Determine title from first argument (usually ID)
+                let title = (typeof args[0] === 'string') ? args[0].charAt(0).toUpperCase() + args[0].slice(1) : "System Roll";
+                if (typeLabel.includes("SKILL")) title += " Check";
+                else if (typeLabel.includes("SAVE")) title += " Save";
+                else if (typeLabel.includes("ATTRIBUTE")) title += " Check";
+
+                await ActionHandler.createProfessionalChatCard({
+                    actor: this,
+                    title: title,
+                    roll: roll,
+                    label: typeLabel
+                });
+            }
+            return roll;
+        };
+    };
+
+    // Apply patches to likely system methods
+    patchSystemRoll('rollSkill', 'SKILL CHECK');
+    patchSystemRoll('rollSave', 'SAVE CHECK');
+    patchSystemRoll('rollAttribute', 'ATTRIBUTE CHECK');
+    patchSystemRoll('rollAttributeCheck', 'ATTRIBUTE CHECK');
+
+    // Prompt 3: Unified Interaction - Handle click on parent .hud-action-button
+    $(document).on('click', '.hud-action-button', function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const link = $(this).find('.inline-roll');
+        if (link.length) {
+            link[0].click();
+        }
+    });
+
+    // Listener for SP Refund buttons on spell cards
+    $(document).on('click', '.myth-hud-refund-btn', async (ev) => {
+        ev.preventDefault();
+        const btn = ev.currentTarget;
+        const actorUuid = btn.dataset.actorUuid;
+        const spCost = parseInt(btn.dataset.spCost);
+        
+        await ActionHandler.refundSP(actorUuid, spCost);
+        
+        // Visual feedback
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-check"></i> Refunded';
+        btn.classList.add('refunded');
+    });
+
+    // Listeners for Apply Buttons (Damage/Healing)
+    $(document).on('click', '.apply-damage-btn', async function(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const val = parseInt(this.dataset.value);
+        const targets = canvas.tokens.controlled;
+        if (!targets.length) return ui.notifications.warn("No tokens selected.");
+        
+        for (const t of targets) {
+            const actor = t.actor;
+            if (!actor) continue;
+            const hp = actor.system.hp.value;
+            await actor.update({"system.hp.value": hp - val});
+            ui.notifications.info(`Applied ${val} damage to ${actor.name}`);
+        }
+    });
+
+    $(document).on('click', '.apply-healing-btn', async function(ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const val = parseInt(this.dataset.value);
+        const targets = canvas.tokens.controlled;
+        if (!targets.length) return ui.notifications.warn("No tokens selected.");
+        
+        for (const t of targets) {
+            const actor = t.actor;
+            if (!actor) continue;
+            const hp = actor.system.hp.value;
+            const max = actor.system.hp.max;
+            await actor.update({"system.hp.value": Math.min(max, hp + val)});
+            ui.notifications.info(`Applied ${val} healing to ${actor.name}`);
+        }
+    });
+
+});
+
+// --- AP DISPLAY LOGIC ---
+const apTextMap = new Map();
+
+function updateTokenAP(token) {
+    // Cleanup existing text
+    if (apTextMap.has(token.id)) {
+        const text = apTextMap.get(token.id);
+        if (text && !text.destroyed) {
+            token.removeChild(text);
+            text.destroy();
+        }
+        apTextMap.delete(token.id);
+    }
+
+    if (!token.controlled) return;
+    if (!token.inCombat) return;
+
+    const combat = game.combat;
+    if (!combat) return;
+
+    const combatant = combat.combatants.find(c => c.tokenId === token.id);
+    if (!combatant) return;
+
+    const isTurn = combat.combatant?.id === combatant.id;
+    const ap = token.actor.system.ap?.value ?? 0;
+    
+    // Blue if turn, Yellow if not
+    const color = isTurn ? 0x3498db : 0xf1c40f;
+
+    const style = new PIXI.TextStyle({
+        fontFamily: "Signika",
+        fontSize: 36,
+        fontWeight: "bold",
+        fill: color,
+        stroke: 0x000000,
+        strokeThickness: 4,
+        dropShadow: true,
+        dropShadowColor: "#000000",
+        dropShadowBlur: 2,
+        dropShadowAngle: Math.PI / 6,
+        dropShadowDistance: 2,
+        align: "center"
+    });
+
+    const text = new PIXI.Text(`${ap}`, style);
+    text.anchor.set(0.5);
+    text.position.set(token.w / 2, token.h / 2);
+    token.addChild(text);
+    apTextMap.set(token.id, text);
+}

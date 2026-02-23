@@ -1,0 +1,23 @@
+   <div class="mythcraft-statblock">
+       <div class="card-header">{{flavor}}</div>
+       <div class="roll-result {{resultClass}}">
+           <div class="roll-label">{{resultLabel}}</div>
+           <div class="roll-value">{{total}}</div>
+           <div class="roll-formula">{{formula}}</div>
+       </div>
+       {{{buttonHtml}}}
+   </div>
+   
+   {{#if @root.dice}}
+   <div class="dice-roll">
+       {{#each @root.dice as |roll|}}
+           {{#each roll.results as |result|}}
+               <div class="dice-result">{{result}}</div>
+           {{/each}}
+       {{/each}}
+   </div>
+   {{/if}}
+   
+   
+   
+   

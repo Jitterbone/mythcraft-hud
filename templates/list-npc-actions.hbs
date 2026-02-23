@@ -1,0 +1,69 @@
+<div class="hud-list-container">
+    {{!-- 1. Multiattack Routine --}}
+    {{#if items.multiattack}}
+    <div class="multiattack-block">
+        <div class="multiattack-header">Combat Routine: Multiattack</div>
+        <div class="multiattack-text">
+            {{{items.multiattack.processedDesc}}}
+        </div>
+    </div>
+    {{/if}}
+
+    {{!-- 2. Actions (Filtered) --}}
+    {{#if items.actions.length}}
+    <div class="hud-section-header">Actions</div>
+    {{#each items.actions}}
+        {{#unless embedded}}
+        <div class="hud-card-layout">
+            <button class="hud-action-btn {{#if (eq type 'weapon')}}weapon-btn{{else}}feature-btn{{/if}}" data-item-id="{{_id}}">
+                <img class="hud-item-icon" src="{{img}}">
+                <div class="hud-text-container">
+                    <div class="hud-row-top">
+                        <span class="hud-item-name">{{name}}</span>
+                        {{#if system.attackLabel}}<span class="hud-atk-badge">Atk: {{system.attackLabel}}</span>{{/if}}
+                    </div>
+                    <div class="hud-row-bottom">
+                        <span class="hud-attr-text">{{system.attrKey}}</span>
+                        <span class="hud-cost-text">{{system.apCost}} AP</span>
+                        {{#if system.resolvedDmg}}<span class="hud-dmg-formula">{{system.resolvedDmg}}</span>{{/if}}
+                    </div>
+                </div>
+            </button>
+            <div class="hud-control-stack">
+                <button class="info-toggle-btn" data-target="desc-{{_id}}"><i class="fas fa-info"></i></button>
+            </div>
+        </div>
+        <div id="desc-{{_id}}" class="hud-item-description" style="display:none;">
+            {{{system.description.value}}}
+        </div>
+        {{/unless}}
+    {{/each}}
+    {{/if}}
+
+    {{!-- 3. Reactions --}}
+    {{#if items.reactions.length}}
+    <div class="hud-section-header">Reactions</div>
+    {{#each items.reactions}}
+    {{#unless embedded}}
+    <div class="clickable-card" data-item-id="{{_id}}">
+        <div class="card-header">{{name}}</div>
+        <div class="card-body" style="display:none;">{{{system.description.value}}}</div>
+    </div>
+    {{/unless}}
+    {{/each}}
+    {{/if}}
+
+    {{!-- 4. Passives --}}
+    {{#if items.features.length}}
+    <div class="hud-section-header">Passives</div>
+    {{#each items.features}}
+    {{#unless embedded}}
+    <div class="clickable-card" data-item-id="{{_id}}">
+        <div class="card-header">{{name}}</div>
+        <div class="card-body" style="display:none;">{{{system.description.value}}}</div>
+    </div>
+    {{/unless}}
+    {{/each}}
+    {{/if}}
+    
+</div>

@@ -1,0 +1,42 @@
+<div class="hud-list-container">
+    {{#if items.actions.length}}
+        {{#each items.actions}}
+        <div class="clickable-card weapon-card-outer">
+            <div class="hud-card-layout">
+                <button class="hud-action-btn weapon-btn" data-item-id="{{this._id}}">
+                    <img src="{{this.img}}" class="hud-item-icon" onerror="this.src='icons/svg/item-bag.svg'"/>
+                    <div class="hud-text-container">
+                        <div class="hud-row-top">
+                            <span class="hud-item-name">{{this.name}}</span>
+                            {{#if this.system.attackLabel}}
+                            <span class="hud-atk-badge">Atk: {{this.system.attackLabel}}</span>
+                            {{/if}}
+                        </div>
+                        <div class="hud-row-bottom">
+                            <div class="hud-stats-left">
+                                {{#if this.system.attrKey}}
+                                <span class="hud-attr-name">{{this.system.attrKey}}</span> | 
+                                {{/if}}
+                                {{#if this.system.apCost}}
+                                <span class="hud-ap-cost">{{this.system.apCost}} AP</span>
+                                {{/if}}
+                            </div>
+                            {{#if this.system.resolvedDmg}}
+                            <span class="hud-dmg-preview">{{this.system.resolvedDmg}}</span>
+                            {{/if}}
+                        </div>
+                    </div>
+                </button>
+                <button class="info-toggle-btn" data-target="desc-{{this._id}}">
+                    <i class="fas fa-info"></i>
+                </button>
+            </div>
+            <div id="desc-{{this._id}}" class="hud-item-description" style="display: none;">
+                {{{this.system.description.value}}}
+            </div>
+        </div>
+        {{/each}}
+    {{else}}
+        <div class="hud-empty-state">No Actions Available</div>
+    {{/if}}
+</div>

@@ -1,0 +1,102 @@
+<div id="mythcraft-hud-wrapper">
+    <!-- Expansion Area (lists appear here) -->
+    <div id="mythcraft-hud-expansion" class="hud-expansion-area"></div>
+
+    <div class="hud-layout-container">
+        {{#if hasActor}}
+            <!-- Left Column: Players Mount + Actor Card -->
+            <div class="hud-left-column">
+                <div id="hud-players-mount"></div>
+                <div class="hud-actor-card">
+                    <img src="{{actorImg}}" class="hud-card-bg" alt="{{actorName}}" onerror="this.src='icons/svg/mystery-man.svg'">
+                    <div class="hud-card-overlay">
+                        <div class="stat-row hp">
+                            <span class="stat-label">HP</span>
+                            <span class="stat-val">{{hp.value}}</span>
+                        </div>
+                        <div class="stat-row ap">
+                            <span class="stat-label">AP</span>
+                            <span class="stat-val">{{ap.value}}</span>
+                        </div>
+                        <div class="stat-row sp">
+                            <span class="stat-label">SP</span>
+                            <span class="stat-val">{{sp.value}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Attributes/Buttons + Hotbar -->
+            <div class="hud-right-column">
+                <!-- Top Row: Attributes + Menu -->
+                <div class="hud-top-row">
+                    <!-- Attributes Section -->
+                    <div class="hud-attributes-section">
+                        {{#each attributeList}}
+                        <div class="hud-attr-pair">
+                            <button class="hud-attr-btn {{#if this.hasSkills}}has-skills{{/if}}" data-attr-id="{{this.id}}" title="Roll {{this.label}} Check">
+                                <span class="attr-label">{{this.label}}</span>
+                                <span class="attr-val">{{this.value}}</span>
+                            </button>
+                            {{#if this.skills.length}}
+                            <div class="hud-skills-popup">
+                                {{#each this.skills}}
+                                <button class="hud-skill-btn" data-skill-id="{{this.id}}">{{this.label}} <span class="skill-val">{{this.value}}</span></button>
+                                {{/each}}
+                            </div>
+                            {{/if}}
+                            <div class="hud-def-box" title="{{this.defLabel}}">
+                                <span class="def-label">{{this.defLabel}}</span>
+                                <span class="def-val">{{this.defVal}}</span>
+                            </div>
+                        </div>
+                        {{/each}}
+                    </div>
+
+                    <!-- Menu Buttons (Inline with attributes) -->
+                    <div class="hud-menu-bar">
+                        <button class="hud-menu-btn" data-type="actions" title="Actions"><i class="fas fa-fist-raised"></i></button>
+                        <button class="hud-menu-btn" data-type="spells" title="Spells"><i class="fas fa-magic"></i></button>
+                        <button class="hud-menu-btn" data-type="features" title="Features"><i class="fas fa-book-open"></i></button>
+                    </div>
+                </div>
+
+                <!-- Integrated Hotbar (Inside Right Column) -->
+                <div class="mythcraft-hotbar">
+                    {{#each hotbar as |slot|}}
+                    <div class="hotbar-slot" data-slot="{{slot.slot}}">
+                        {{#if slot.macro}}
+                            <button class="hotbar-macro-btn" data-macro-id="{{slot.macro.id}}" title="{{slot.macro.name}}">
+                                <img src="{{slot.icon}}" alt="{{slot.name}}" class="hotbar-icon">
+                                <span class="hotbar-slot-number">{{slot.slot}}</span>
+                            </button>
+                        {{else}}
+                            <div class="hotbar-empty">
+                                <span class="hotbar-slot-number">{{slot.slot}}</span>
+                            </div>
+                        {{/if}}
+                    </div>
+                    {{/each}}
+                </div>
+            </div>
+        {{else}}
+            <!-- Just Hotbar (No Actor) -->
+            <div class="mythcraft-hotbar">
+                {{#each hotbar as |slot|}}
+                <div class="hotbar-slot" data-slot="{{slot.slot}}">
+                    {{#if slot.macro}}
+                        <button class="hotbar-macro-btn" data-macro-id="{{slot.macro.id}}" title="{{slot.macro.name}}">
+                            <img src="{{slot.icon}}" alt="{{slot.name}}" class="hotbar-icon">
+                            <span class="hotbar-slot-number">{{slot.slot}}</span>
+                        </button>
+                    {{else}}
+                        <div class="hotbar-empty">
+                            <span class="hotbar-slot-number">{{slot.slot}}</span>
+                        </div>
+                    {{/if}}
+                </div>
+                {{/each}}
+            </div>
+        {{/if}}
+    </div>
+</div>

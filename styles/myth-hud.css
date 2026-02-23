@@ -1,0 +1,1629 @@
+:root {
+    --myth-hud-scale: 1.0;
+}
+.weapon-header-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    border-bottom: 1px solid #3a7a7f;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    line-height: normal;
+    min-width: 0;
+}
+.weapon-header-block .weapon-name {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: #FEEBB3;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding-top: 2px;
+    width: 100%;
+}
+.weapon-header-block .attack-label {
+    font-weight: bold;
+    color: #111;
+    background: #7a9fa4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 1em;
+    white-space: nowrap;
+    margin-top: 4px;
+    margin-left: 0;
+    text-align: left;
+}
+/* Weapon Menu Layout Fixes */
+.weapon-row {
+    display: flex;
+    align-items: stretch;
+    width: 100%;
+}
+.weapon-btn {
+    display: flex;
+    align-items: center;
+    flex: 1 1 0%;
+    min-width: 0;
+    padding: 6px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    gap: 0;
+}
+.weapon-btn img {
+    width: 48px;
+    height: 48px;
+    object-fit: cover;
+    border: 1px solid #3a7a7f;
+    border-radius: 0 !important;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+.weapon-info {
+    flex: 1 1 0%;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0;
+}
+.weapon-header {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #3a7a7f;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+    line-height: normal;
+    min-width: 0;
+}
+.weapon-name {
+    font-weight: bold;
+    font-size: 1.2em;
+    color: #FEEBB3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    padding-top: 2px;
+    flex: 2 1 70%;
+    min-width: 0;
+    max-width: 100%;
+}
+.attack-label {
+    font-weight: bold;
+    color: #111;
+    background: #7a9fa4;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 1em;
+    white-space: nowrap;
+    margin-left: 8px;
+    flex: 0 0 auto;
+    text-align: center;
+}
+.weapon-details {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.9em;
+    color: #ccc;
+    line-height: normal;
+    padding-top: 2px;
+}
+.damage-label {
+    font-family: monospace;
+    font-size: 1.1em;
+    color: #FEEBB3;
+}
+.weapon-desc {
+    display: none;
+    padding: 8px;
+    border-top: 1px dashed #3a7a7f;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 0.9em;
+    color: #ddd;
+    line-height: 1.4;
+    width: auto;
+    max-width: none;
+    min-width: 0;
+    white-space: normal;
+    overflow: visible;
+    box-sizing: border-box;
+}
+.info-toggle-btn {
+    width: 36px;
+    border: none;
+    border-left: 1px solid #3a7a7f;
+    background: rgba(58, 122, 127, 0.3);
+    color: #FEEBB3;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Stack Container for Info + Mod buttons */
+.hud-control-stack {
+    display: flex;
+    flex-direction: column;
+    width: 36px;
+    border-left: 1px solid #3a7a7f;
+    flex-shrink: 0;
+}
+
+.hud-control-stack .info-toggle-btn {
+    width: 100%;
+    flex: 1;
+    border-left: none;
+    border-bottom: 1px solid #3a7a7f;
+}
+/* ============================================
+   MYTHCRAFT HUD - PERSISTENT BOTTOM-LEFT STYLE
+   ============================================ */
+
+#mythcraft-hud-app {
+    position: fixed !important;
+    bottom: 10px !important;
+    top: auto !important; /* Override Foundry default */
+    z-index: 100; /* Ensure it sits above chat and players */
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none;
+    padding: 0 !important;
+    margin: 0 !important;
+    width: auto !important;
+    height: auto !important;
+    left: 5px !important;
+    transform: scale(var(--myth-hud-scale));
+    transform-origin: bottom left;
+}
+
+/* Hide the standard window header */
+#mythcraft-hud-app .window-header {
+    display: none !important;
+}
+
+#mythcraft-hud-app .window-content {
+    background: transparent !important;
+    padding: 0 !important;
+    overflow: visible !important;
+}
+
+/* ============================================
+   SPELL CARD STYLING
+   ============================================ */
+
+.mythcraft-statblock.spell-card {
+    background: #f0f4ff !important; /* Light blue background */
+    border-color: #2a1a5e !important; /* Deep purple border */
+    color: #111 !important;
+}
+
+.mythcraft-statblock.spell-card .card-header {
+    background: #2a1a5e !important; /* Deep purple header */
+    border-bottom: 2px solid #1a0f3e !important;
+    color: #fff !important;
+}
+
+.mythcraft-statblock.spell-card .card-desc {
+    color: #333 !important;
+}
+
+.mythcraft-statblock.spell-card .card-desc.scrollable {
+    max-height: 200px;
+    overflow-y: auto;
+    padding-right: 4px;
+    border-bottom: 1px solid #ccc;
+    margin-bottom: 8px;
+}
+
+.spell-resource-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(42, 26, 94, 0.1);
+    padding: 4px 8px;
+    border-bottom: 1px solid #ccc;
+    font-size: 0.9em;
+}
+
+.sp-spent { color: #2a1a5e; }
+.ap-spent { color: #e74c3c; }
+
+/* Spell Preview Badges */
+.spell-preview-badge {
+    font-size: 0.75em;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-weight: bold;
+    text-transform: uppercase;
+    margin-left: 6px;
+    color: #fff;
+}
+
+.spell-preview-badge.healing { background: #2ecc71; }
+.spell-preview-badge.damage { background: #e74c3c; }
+.spell-preview-badge.utility { background: #95a5a6; }
+
+/* Scrollbar for spell description */
+.card-desc.scrollable::-webkit-scrollbar { width: 4px; }
+.card-desc.scrollable::-webkit-scrollbar-thumb { background: #2a1a5e; border-radius: 2px; }
+
+/* ============================================
+   FEATURE CARD BUTTONS
+   ============================================ */
+
+.hud-feature-btn {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    background: rgba(30, 30, 30, 0.6);
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    padding: 0;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s;
+    overflow: hidden;
+}
+
+.hud-feature-btn:hover {
+    background: rgba(58, 122, 127, 0.3);
+    border-color: #5a9a9f;
+}
+
+.hud-feature-btn .feature-header {
+    background: rgba(58, 122, 127, 0.4);
+    padding: 4px 8px;
+    font-weight: bold;
+    color: #FEEBB3;
+    border-bottom: 1px solid #3a7a7f;
+    width: 100%;
+}
+
+.hud-feature-btn .feature-body {
+    padding: 8px;
+    color: #ddd;
+    font-size: 0.9em;
+    line-height: 1.4;
+}
+
+#mythcraft-hud-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-family: "Signika", sans-serif;
+    color: #FEEBB3;
+    user-select: none;
+    pointer-events: auto;
+}
+
+/* Layout Container for the 3 main blocks */
+.hud-layout-container {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    pointer-events: auto;
+}
+
+/* --- LEFT COLUMN: Players + Actor Card --- */
+.hud-left-column {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    width: 200px; /* Reduced to align tighter with players box */
+}
+
+/* --- RIGHT COLUMN: Attributes/Menu + Hotbar --- */
+.hud-right-column {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    height: 220px; /* Fixed height to match Actor Card */
+    justify-content: flex-end;
+}
+
+/* --- TOP ROW: Attributes + Menu --- */
+.hud-top-row {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.hud-menu-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 0;
+}
+
+/* --- ATTRIBUTE CARDS --- */
+.hud-attributes-section {
+    display: flex;
+    gap: 4px;
+    align-items: flex-end;
+}
+
+.hud-attr-pair {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    align-items: center;
+    position: relative; /* For popup positioning */
+}
+
+/* Rollable Attribute Button (Square) */
+.hud-attr-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: rgba(50, 50, 50, 0.6);
+    border: 1px solid #444;
+    border-radius: 3px;
+    padding: 0;
+    cursor: pointer;
+    color: #fff;
+    transition: all 0.2s;
+}
+
+.hud-attr-btn.has-skills {
+    color: #FEEBB3;
+}
+
+.hud-attr-btn:hover {
+    background: #3a7a7f;
+    color: #fff;
+}
+
+.attr-label { font-size: 10px; font-weight: bold; text-transform: uppercase; line-height: 1; }
+.attr-val { font-size: 16px; font-weight: bold; color: #fff; line-height: 1; margin-top: 2px; }
+
+/* Skills Popup */
+.hud-skills-popup {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    padding: 4px;
+    margin-bottom: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 120px;
+    z-index: 200;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    
+    /* Hover Delay Logic */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
+.hud-attr-pair:hover .hud-skills-popup {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease 0.3s, visibility 0s linear 0.3s; /* 0.3s delay before showing */
+}
+
+.hud-skill-btn {
+    background: transparent;
+    border: none;
+    color: #FEEBB3;
+    text-align: left;
+    padding: 4px 8px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 2px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.hud-skill-btn:hover {
+    background: rgba(58, 122, 127, 0.4);
+    color: #fff;
+}
+
+.skill-val {
+    color: #7a9fa4;
+    font-weight: bold;
+}
+
+/* Defense Box (Square) */
+.hud-def-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    background: rgba(20, 20, 20, 0.8);
+    border: 1px solid #555;
+    border-radius: 3px;
+    color: #aaa;
+}
+
+.def-label { font-size: 9px; font-weight: bold; text-transform: uppercase; line-height: 1; }
+.def-val { font-size: 14px; font-weight: bold; color: #ccc; line-height: 1; margin-top: 2px; }
+
+/* --- RIGHT GROUP: Actor Card --- */
+.hud-actor-card {
+    position: relative;
+    width: 100%; /* Fill column width to match players box */
+    height: 220px; /* Fixed height */
+    border: 2px solid #3a7a7f;
+    border-radius: 6px;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(0,0,0,0.8);
+}
+
+.hud-card-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    opacity: 0.8;
+}
+
+.hud-card-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.4) 100%);
+    padding: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    font-weight: bold;
+    padding: 0 4px;
+    text-shadow: 1px 1px 2px #000;
+}
+.stat-row.sp .stat-val { color: #cc66ff; }
+/* ===============================
+   ACTION BUTTONS (Menu)
+   =============================== */
+
+.hud-menu-btn {
+    width: 32px; /* Small square */
+    height: 32px; /* Small square */
+    padding: 2px;
+    border: 2px solid #3a7a7f;
+    background: linear-gradient(135deg, #0f2a2b 0%, #1a4345 100%);
+    border-radius: 4px;
+    color: #FEEBB3;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s ease;
+}
+
+.hud-menu-btn:hover {
+    background: linear-gradient(135deg, #1a5255 0%, #2a5a5f 100%);
+    border-color: #5a9a9f;
+    transform: scale(1.05);
+    box-shadow: 0 2px 6px rgba(58, 122, 127, 0.4);
+}
+.hud-menu-btn:active {
+    transform: scale(0.95);
+}
+
+.hud-menu-btn i {
+    display: block;
+    pointer-events: none;
+}
+
+/* ============================================
+   EXPANSION LISTS
+   ============================================ */
+
+#mythcraft-hud-expansion {
+    background: rgba(20, 20, 20, 0.95);
+    border: 1px solid #3a7a7f;
+    border-radius: 6px;
+    padding: 6px;
+    max-height: 65vh;
+    overflow-y: auto;
+    display: none; /* Hidden by default */
+    margin-bottom: 5px;
+    pointer-events: auto;
+    width: max-content;
+    min-width: 350px;
+    max-width: 550px;
+}
+
+#mythcraft-hud-expansion:not(:empty) {
+    display: block;
+}
+
+#mythcraft-hud-expansion::-webkit-scrollbar {
+    width: 6px;
+}
+
+#mythcraft-hud-expansion::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+    border-radius: 3px;
+}
+
+#mythcraft-hud-expansion::-webkit-scrollbar-thumb {
+    background: #3a7a7f;
+    border-radius: 3px;
+}
+
+#mythcraft-hud-expansion::-webkit-scrollbar-thumb:hover {
+    background: #5a9a9f;
+}
+
+.hud-list-container {
+    display: flex;
+    flex-direction: column; /* Vertical list */
+    gap: 6px;
+    pointer-events: auto;
+    width: 100%;
+}
+
+.hud-list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 6px;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid #2a5a5f;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-size: 12px;
+    pointer-events: auto;
+    min-width: 150px; /* Ensure items have width in horizontal layout */
+}
+
+.hud-list-item:hover {
+    background: rgba(58, 122, 127, 0.3);
+    border-color: #3a7a7f;
+    transform: translateX(2px);
+}
+
+.hud-list-item:active {
+    transform: translateX(1px);
+    background: rgba(58, 122, 127, 0.5);
+}
+
+.hud-item-icon {
+    width: 24px;
+    height: 24px;
+    border-radius: 3px;
+    overflow: hidden;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #3a7a7f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: none;
+}
+
+.hud-item-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+}
+
+.hud-item-icon i {
+    font-size: 14px;
+    color: #7a9fa4;
+    pointer-events: none;
+}
+
+.hud-item-name {
+    flex: 1;
+    color: #FEEBB3;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.hud-item-cost {
+    font-size: 10px;
+    color: #7a9fa4;
+    margin-left: auto;
+    text-align: right;
+    white-space: nowrap;
+}
+
+.hud-item-cost.ap {
+    color: #c49a6f;
+}
+
+.hud-item-cost.sp {
+    color: #a8d5e2;
+}
+
+.hud-item-cost.hp {
+    color: #ff6b6b;
+}
+
+/* ============================================
+   EMPTY STATE
+   ============================================ */
+
+.hud-empty-state {
+    padding: 12px;
+    text-align: center;
+    color: #7a9fa4;
+    font-size: 11px;
+    font-style: italic;
+}
+
+/* ============================================
+   INTEGRATED HOTBAR (Macro Slots)
+   ============================================ */
+
+.mythcraft-hotbar {
+    display: grid;
+    --hotbar-slot-size: 50px; /* Increased size */
+    grid-template-columns: repeat(10, var(--hotbar-slot-size));
+    gap: 6px;
+    width: fit-content;
+    background: linear-gradient(135deg, #0f2a2b 0%, #112f30 100%);
+    border: 2px solid #3a7a7f;
+    border-radius: 6px;
+    padding: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+    pointer-events: auto;
+}
+.hotbar-slot {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #2a5a5f;
+    border-radius: 3px;
+    position: relative;
+    pointer-events: auto;
+}
+
+.hotbar-macro-btn {
+    width: 100%;
+    height: 100%;
+    padding: 0;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    transition: all 0.15s ease;
+    pointer-events: auto;
+}
+
+.hotbar-macro-btn:hover {
+    background: rgba(58, 122, 127, 0.3);
+}
+
+.hotbar-macro-btn:active {
+    background: rgba(58, 122, 127, 0.5);
+}
+
+.hotbar-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 2px;
+    pointer-events: none;
+}
+
+.hotbar-slot-number {
+    position: absolute;
+    bottom: 1px;
+    right: 2px;
+    font-size: 8px;
+    font-weight: bold;
+    color: #7a9fa4;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 1px 3px;
+    border-radius: 2px;
+    pointer-events: none;
+    opacity: 0.7;
+}
+
+.hotbar-empty {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: flex-end;
+    justify-content: flex-end;
+    position: relative;
+    opacity: 0.5;
+}
+
+.hotbar-empty .hotbar-slot-number {
+    position: static;
+    background: transparent;
+    padding: 2px;
+}
+
+/* Reduce hotbar visual footprint on small screens */
+@media (max-width: 1100px) {
+    .mythcraft-hotbar { --hotbar-slot-size: 36px; gap: 4px; padding: 4px; }
+}
+
+/* ============================================
+   INTEGRATED UI STYLES
+   ============================================ */
+
+/* When players list is moved into HUD */
+#players.integrated-players {
+    position: static !important;
+    margin: 0 !important;
+    width: 100% !important;
+    transform: none !important;
+}
+
+/* Chat scroll container - Foundry V13 native styling */
+/* More specific scrollbar styling for the main chat log */
+#chat-log {
+    scrollbar-width: thin !important;
+    direction: ltr;
+}
+
+.chat-scroll::-webkit-scrollbar, #chat-log::-webkit-scrollbar {
+    width: 3px !important;
+}
+
+.chat-scroll::-webkit-scrollbar-track, #chat-log::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.chat-scroll::-webkit-scrollbar-thumb, #chat-log::-webkit-scrollbar-thumb {
+    background: #3a7a7f;
+    border-radius: 2px;
+}
+
+/* ============================================
+   MACRO STYLE PORT (Cards & Rows)
+   ============================================ */
+
+.clickable-card {
+    border: 1px solid #3a7a7f;
+    background: rgba(30, 30, 30, 0.6);
+    margin-bottom: 4px;
+    padding: 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    overflow: hidden;
+    width: 100%;
+    text-align: left;
+}
+
+.clickable-card:hover {
+    background: rgba(58, 122, 127, 0.3);
+    border-color: #5a9a9f;
+    transform: translateY(-1px);
+}
+
+.card-header {
+    background: rgba(58, 122, 127, 0.4);
+    padding: 4px 8px;
+    font-weight: bold;
+    color: #FEEBB3;
+    border-bottom: 1px solid #3a7a7f;
+    font-size: 1em;
+}
+
+.card-body {
+    padding: 8px;
+    line-height: 1.4;
+    color: #ddd;
+    font-size: 0.9em;
+}
+
+.hud-section-header {
+    color: #174345;
+    border-bottom: 1px solid #174345;
+    margin: 8px 0 4px 0;
+    font-variant: small-caps;
+}
+
+/* More specific scrollbar styling for the main chat log */
+#chat-log {
+    font-weight: bold;
+}
+
+/* ============================================
+   WEAPON MENU LAYOUT (Macro Style)
+   ============================================ */
+
+.hud-card-layout {
+    display: flex;
+    width: 100%;
+    align-items: stretch;
+    background: rgba(30, 30, 30, 0.6);
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    margin-bottom: 4px;
+    overflow: hidden !important;
+}
+
+.hud-item-icon {
+    width: 40px;
+    height: 40px;
+    object-fit: cover;
+    border: 1px solid #3a7a7f;
+    border-radius: 0;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+/* Container for the text block */
+.hud-text-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column; /* FORCES TOP AND BOTTOM TO STACK */
+    justify-content: center;
+    padding-left: 4px;
+    min-width: 0;
+}
+
+/* Top line formatting */
+.hud-row-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(232, 226, 210, 0.2); /* Separator Line */
+    padding-bottom: 2px;
+    margin-bottom: 2px;
+    width: 100%;
+}
+
+.hud-atk-badge {
+    background: #e8e2d2;
+    color: #191813;
+    padding: 0 4px;
+    border-radius: 3px;
+    font-size: 0.85em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+/* Bottom line formatting */
+.hud-row-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.85em;
+    color: #d3c4a3;
+    width: 100%;
+}
+
+.hud-dmg-preview {
+    font-family: monospace;
+    font-weight: bold;
+    color: #e8e2d2;
+    white-space: nowrap;
+    margin-left: 8px;
+}
+
+/* Ensure the button doesn't squish the content */
+.hud-action-btn {
+    min-height: 50px;
+    height: auto !important;
+    padding: 5px !important;
+    display: flex !important;
+    align-items: center !important;
+    flex: 1;
+    text-align: left;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    width: 100%;
+}
+
+.hud-item-description {
+    padding: 8px;
+    border-top: 1px dashed #3a7a7f;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 0.9em;
+    color: #ddd;
+    line-height: 1.4;
+}
+
+.mod-toggle-btn {
+    width: 36px;
+    border: none;
+    border-left: 1px solid #3a7a7f;
+    background: rgba(58, 122, 127, 0.3);
+    color: #a8d5e2;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.mod-toggle-btn:hover {
+    background: #3a7a7f;
+    color: #fff;
+}
+
+.hud-control-stack .mod-toggle-btn {
+    width: 100%;
+    flex: 1;
+    border-left: none;
+    border-top: none;
+}
+
+/* ============================================
+   INJECTED BUTTONS (Multiattack Routine)
+   ============================================ */
+
+.injected-group {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+    margin: 0 2px;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.injected-btn {
+    display: inline-block !important;
+    width: auto !important;
+    min-height: unset !important;
+    height: auto !important;
+    padding: 2px 6px !important;
+    font-size: 0.9em;
+    background: transparent;
+    color: #FEEBB3;
+    border: none;
+    cursor: pointer;
+}
+
+.injected-btn:hover {
+    background: rgba(58, 122, 127, 0.5);
+    text-shadow: 0 0 5px #FEEBB3;
+}
+
+.injected-info {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border: none;
+    border-left: 1px solid #3a7a7f;
+    background: rgba(58, 122, 127, 0.3);
+    color: #7a9fa4;
+    cursor: pointer;
+}
+
+.injected-info:hover {
+    background: #3a7a7f;
+    color: #fff;
+}
+
+/* ============================================
+   CHAT MESSAGE STYLES (Refund Protocol)
+   ============================================ */
+
+.myth-hud-chat-msg {
+    background: rgba(0, 0, 0, 0.1);
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    padding: 4px;
+    margin-top: 4px;
+    font-size: 0.9em;
+}
+
+.myth-hud-chat-header {
+    font-weight: bold;
+    color: #3a7a7f;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 2px;
+    margin-bottom: 4px;
+}
+
+.myth-hud-chat-body {
+    margin-bottom: 6px;
+}
+
+.myth-hud-refund-btn {
+    width: 100%;
+    background: rgba(58, 122, 127, 0.2);
+    border: 1px solid #3a7a7f;
+    color: #3a7a7f;
+    border-radius: 3px;
+    padding: 2px;
+    cursor: pointer;
+    font-size: 0.85em;
+    transition: all 0.2s;
+}
+
+.myth-hud-refund-btn:hover {
+    background: #3a7a7f;
+    color: #fff;
+}
+
+.myth-hud-refund-btn.refunded {
+    background: #4caf50;
+    border-color: #4caf50;
+    color: #fff;
+    cursor: default;
+    opacity: 0.8;
+}
+
+/* ============================================
+   UNIFIED EXECUTION CORE (Chat Cards)
+   ============================================ */
+
+.myth-hud-chat-card {
+    background: #222; /* Dark Gray */
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    overflow: hidden;
+    color: #eee;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+.myth-hud-chat-card .card-header {
+    background: #3a7a7f;
+    color: #fff;
+    padding: 4px 8px;
+    font-weight: bold;
+    font-size: 1.1em;
+    border-bottom: 1px solid #2a5a5f;
+}
+
+.myth-hud-chat-card .card-desc {
+    padding: 8px;
+    font-size: 0.9em;
+    color: #ccc;
+    line-height: 1.4;
+}
+
+.roll-result {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    padding: 12px;
+    background: #151515;
+    border-bottom: 1px solid #3a7a7f;
+}
+
+.roll-result.crit-success { background: #151515; border-color: #3a7a7f; }
+.roll-result.crit-fail { background: #151515; border-color: #3a7a7f; }
+
+.roll-result.crit-success .roll-value { color: #2ecc71 !important; text-shadow: 0 0 8px rgba(46, 204, 113, 0.4) !important; }
+.roll-result.crit-fail .roll-value { color: #e74c3c !important; text-shadow: 0 0 8px rgba(231, 76, 60, 0.4) !important; }
+
+.roll-label { font-size: 0.85em; font-variant: small-caps; color: #d3c4a3; font-weight: bold; letter-spacing: 0.5px; }
+.roll-value { font-size: 1.8em; font-weight: bold; color: #FEEBB3; line-height: 1.1; transition: color 0.2s; }
+.roll-formula { font-size: 0.8em; color: #777; font-family: monospace; }
+
+.card-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 4px;
+    border-top: 1px solid #3a7a7f;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.myth-hud-dmg-btn {
+    flex: 1;
+    background: rgba(58, 122, 127, 0.3);
+    border: 1px solid #3a7a7f;
+    color: #FEEBB3;
+    border-radius: 3px;
+    padding: 4px;
+    cursor: pointer;
+    font-size: 0.9em;
+    font-weight: bold;
+}
+.myth-hud-dmg-btn:hover { background: #3a7a7f; color: #fff; }
+
+/* ============================================
+   CUSTOM DIALOG STYLES
+   ============================================ */
+
+.myth-hud-dialog .window-content {
+    background: #1a1a1a;
+    color: #FEEBB3;
+    border: 1px solid #3a7a7f;
+    padding: 10px;
+}
+
+.myth-hud-dialog .window-header {
+    background: #0f2a2b;
+    color: #FEEBB3;
+    border-bottom: 1px solid #3a7a7f;
+}
+
+.myth-hud-dialog .form-group label {
+    color: #7a9fa4;
+    font-weight: bold;
+}
+
+.myth-hud-dialog input[type="text"],
+.myth-hud-dialog input[type="number"],
+.myth-hud-dialog select {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid #3a7a7f;
+    color: #fff;
+    border-radius: 3px;
+}
+
+.myth-hud-dialog option,
+.myth-hud-dialog optgroup {
+    background: #1a1a1a;
+    color: #fff;
+}
+
+.myth-hud-dialog input:focus {
+    box-shadow: 0 0 5px #3a7a7f;
+}
+
+.myth-hud-dialog .dialog-buttons button {
+    background: rgba(58, 122, 127, 0.3);
+    border: 1px solid #3a7a7f;
+    color: #FEEBB3;
+    text-transform: uppercase;
+    font-weight: bold;
+}
+
+.myth-hud-dialog .dialog-buttons button:hover {
+    background: #3a7a7f;
+    color: #fff;
+    box-shadow: 0 0 8px rgba(58, 122, 127, 0.6);
+}
+
+/* ============================================
+   TACTICAL MODIFIERS INTERFACE
+   ============================================ */
+
+/* Zone 1, 2, 3 Card Layout */
+.tac-card {
+    display: flex;
+    border: 1px solid #3a7a7f;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    margin-bottom: 10px;
+    overflow: hidden;
+    align-items: stretch;
+}
+
+.tac-zone-1 {
+    width: 40px;
+    min-width: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #000;
+    border-right: 1px solid #3a7a7f;
+}
+.tac-zone-1 img { width: 100%; height: 100%; object-fit: cover; border: none; display: block; }
+
+.tac-zone-2 {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-width: 0;
+}
+
+.tac-row-top {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 6px;
+    border-bottom: 1px solid rgba(58, 122, 127, 0.3);
+    font-size: 0.95em;
+    font-weight: bold;
+    color: #FEEBB3;
+    align-items: center;
+}
+
+.tac-row-bot {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 6px;
+    font-size: 0.85em;
+    align-items: center;
+}
+
+.tac-attr { color: #3498db; font-weight: bold; margin-right: 4px; }
+.tac-cost { color: #e74c3c; font-weight: bold; }
+.tac-dmg { font-family: monospace; color: #ccc; letter-spacing: 0.5px; }
+
+.tac-zone-3 {
+    width: 24px;
+    background: rgba(58, 122, 127, 0.15);
+    border-left: 1px solid #3a7a7f;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #7a9fa4;
+    transition: all 0.2s;
+}
+.tac-zone-3:hover { background: #3a7a7f; color: #fff; }
+
+/* Tactical Grid Form */
+.tac-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+.tac-grid .form-group { 
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.tac-label-ta { color: #3498db !important; font-weight: bold; white-space: nowrap; }
+.tac-label-td { color: #e74c3c !important; font-weight: bold; white-space: nowrap; }
+.tac-full-width { grid-column: 1 / -1; }
+
+.tac-ap-section {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 4px;
+    padding: 8px;
+    margin: 8px 0;
+    text-align: center;
+}
+
+/* ============================================
+   STYLIZED DAMAGE BUTTONS
+   ============================================ */
+
+.hud-action-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    margin-top: 10px; /* Prompt 4: Separator */
+    padding: 12px; /* Prompt 2: Spacing */
+    background: #1a1a1a; /* Prompt 2: Dark background */
+    border: 2px solid #d3c4a3; /* Prompt 2: Gold border */
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    position: relative;
+}
+
+/* Prompt 4: Subtle dashed border-top above the button */
+.hud-action-button::before {
+    content: '';
+    position: absolute;
+    top: -6px;
+    left: 0;
+    width: 100%;
+    border-top: 1px dashed rgba(211, 196, 163, 0.3);
+}
+
+.hud-action-button:hover {
+    background: #252525;
+    box-shadow: 0 0 8px rgba(211, 196, 163, 0.4);
+}
+
+.hud-action-button:active {
+    transform: scale(0.98);
+}
+
+/* Style the inline roll anchor to fill the container and look clean */
+.hud-action-button .inline-roll {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    text-decoration: none;
+    border: none;
+    background: transparent;
+    line-height: 1.2;
+    color: inherit;
+    pointer-events: none; /* Prompt 3: Unified Interaction */
+}
+
+/* Prompt 3: Suppress Default Styles */
+.hud-action-button .inline-roll i.fas.fa-dice-d20 {
+    display: none;
+}
+
+.action-label {
+    color: #d3c4a3; /* Prompt 2: Bold, Gold, Uppercase */
+    font-family: "Signika", sans-serif;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-transform: uppercase;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.action-label i {
+    color: #e74c3c;
+}
+
+.hud-action-button.healing .action-label i {
+    color: #2ecc71;
+}
+
+.action-formula {
+    font-family: monospace;
+    font-size: 0.9em;
+    color: #e8e2d2; /* Prompt 2: Muted cream */
+}
+
+.apply-damage-btn {
+    background: #e74c3c;
+    color: #fff;
+    border: 1px solid #fff;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.apply-damage-btn:hover {
+    background: #c0392b;
+}
+
+.apply-healing-btn {
+    background: #2ecc71;
+    color: #fff;
+    border: 1px solid #fff;
+    border-radius: 4px;
+    padding: 6px 12px;
+    font-weight: bold;
+    text-transform: uppercase;
+    cursor: pointer;
+    margin-top: 8px;
+    width: 100%;
+}
+
+.apply-healing-btn:hover {
+    background: #27ae60;
+}
+
+/* ============================================
+   NPC MULTIATTACK STATBLOCK
+   ============================================ */
+
+.multiattack-block {
+    background: rgba(20, 20, 20, 0.6);
+    border: 2px solid #d3c4a3;
+    border-radius: 4px;
+    padding: 8px;
+    margin-bottom: 8px;
+}
+
+.multiattack-header {
+    font-family: "Signika", sans-serif;
+    font-weight: bold;
+    font-size: 1.1em;
+    color: #FEEBB3;
+    border-left: 4px solid #3a7a7f;
+    padding-left: 8px;
+    margin-bottom: 8px;
+    line-height: 1.2;
+    font-variant: small-caps;
+}
+
+.multiattack-text {
+    font-size: 0.95em;
+    color: #ddd;
+    line-height: 1.6;
+}
+
+.contextual-descender {
+    margin-top: 8px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border-left: 2px solid #7a9fa4;
+    font-size: 0.9em;
+    color: #ccc;
+    border-radius: 0 4px 4px 0;
+}
+
+/* ============================================
+   UNIFIED STATBLOCK STYLE
+   ============================================ */
+
+.mythcraft-statblock {
+    background: #1a1a1a !important;
+    border: 2px solid #174345 !important;
+    border-style: solid !important;
+    border-radius: 4px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+    color: #eee;
+    font-family: serif;
+    overflow: hidden;
+    padding: 0 !important;
+}
+
+.mythcraft-statblock .card-header {
+    background: #174345;
+    border-bottom: 1px solid #2a5a5f;
+    color: #FEEBB3;
+    display: flex;
+    align-items: center;
+    font-size: 1.2em;
+    font-weight: bold;
+    gap: 8px;
+    padding: 4px 8px;
+}
+
+.mythcraft-statblock .card-header img {
+    border: 1px solid #a8d5e2;
+    border-radius: 4px;
+    height: 32px;
+    object-fit: cover;
+    width: 32px;
+}
+
+.mythcraft-statblock .dice-roll,
+.mythcraft-statblock .dice-result {
+    background: none !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.hud-vall {
+    transition: color 0.3s ease;
+    font-weight: bold;
+}
+
+/* ============================================
+   GM CHARACTER SWITCHER
+   ============================================ */
+
+.hud-gm-char-list {
+    display: flex;
+    flex-wrap: wrap-reverse;
+    gap: 2px;
+    max-width: 280px;
+    margin-bottom: 0;
+    justify-content: flex-start;
+}
+
+.hud-gm-char-card {
+    width: 42px;
+    height: 42px;
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.hud-gm-char-card:hover, .hud-gm-char-card.active {
+    opacity: 1;
+    border-color: #FEEBB3;
+    transform: scale(1.1);
+    box-shadow: 0 0 5px rgba(254, 235, 179, 0.5);
+}
+
+.hud-gm-char-card img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 3px;
+}
+
+/* ============================================
+   GLOBAL DIALOG & POPUP OVERRIDES
+   ============================================ */
+
+.dialog, .window-app, .situational-bonus {
+    background: var(--color-bg) !important;
+    color: var(--color-text) !important;
+    border: 1px solid var(--color-border) !important;
+    border-radius: 4px !important;
+}
+
+.dialog .window-content, .window-app .window-content {
+    background: transparent !important;
+    color: inherit !important;
+}
+
+.dialog .window-header, .window-app .window-header {
+    background: #0f2a2b !important;
+    border-bottom: 1px solid var(--color-border) !important;
+    color: var(--color-border) !important;
+}
+
+.dialog input, .window-app input, .situational-bonus input,
+.dialog select, .window-app select, .situational-bonus select {
+    background: rgba(255, 255, 255, 0.05) !important;
+    color: var(--color-text) !important;
+    border: 1px solid var(--color-border) !important;
+}
+
+/* Make button text readable in themed dialogs by increasing specificity */
+.dialog .dialog-buttons button, .window-app .dialog-buttons button, .situational-bonus .dialog-buttons button {
+    background: rgba(58, 122, 127, 0.3) !important;
+    border: 1px solid var(--color-border) !important;
+    color: var(--color-border) !important;
+    text-transform: uppercase;
+    font-weight: bold;
+    box-shadow: none !important;
+}
+
+.dialog .dialog-buttons button:hover, .window-app .dialog-buttons button:hover, .situational-bonus .dialog-buttons button:hover {
+    background: var(--color-border) !important;
+    color: #000 !important;
+    box-shadow: 0 0 5px var(--color-border) !important;
+}
+
+/* ============================================
+   FORCE DARK MODE FOR CHAT
+   ============================================ */
+
+.chat-message {
+    background: #1a1a1a !important;
+    border: 1px solid #3a7a7f !important;
+    color: #FEEBB3 !important;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5) !important;
+    margin: 5px 0 !important; /* Remove horizontal margin for alignment */
+    border-radius: 3px;
+}
+
+.chat-message .message-header {
+    color: #FEEBB3 !important;
+    border-bottom: 1px solid rgba(58, 122, 127, 0.3);
+}
+
+.chat-message .message-metadata {
+    color: #7a9fa4 !important;
+}
+
+.chat-message .message-content {
+    color: #eee !important;
+}
+
+/* Global Input Standardization */
+.dialog input[type="number"], .dialog input[type="text"], .dialog select,
+.window-app input[type="number"], .window-app input[type="text"], .window-app select,
+.situational-bonus input, .situational-bonus select {
+    background: #222 !important;
+    color: #d3c4a3 !important;
+    border: 1px solid #d3c4a3 !important;
+    border-radius: 3px;
+}
+
+/* Standardized Labels */
+label.tac-label-ta { color: #3498db !important; }
+label.tac-label-td { color: #e74c3c !important; }
+
+/* Hide duplicate system buttons */
+.chat-message button.apply-damage {
+    display: none !important;
+}

@@ -1,0 +1,31 @@
+<div class="hud-list-container">
+    {{#each items.spells}}
+    <div class="hud-card-layout">
+        <button class="hud-action-btn spell-btn" data-item-id="{{_id}}">
+            <img class="hud-item-icon" src="{{img}}">
+            <div class="hud-text-container">
+                <div class="hud-row-top">
+                    <span class="hud-item-name">{{name}}</span>
+                    {{#if system.attackLabel}}<span class="hud-atk-badge">Atk: {{system.attackLabel}}</span>{{/if}}
+                    {{#if system.previewLabel}}<span class="spell-preview-badge {{system.previewClass}}">{{system.previewLabel}}</span>{{/if}}
+                </div>
+                <div class="hud-row-bottom">
+                    <span class="hud-attr-text">{{system.attrKey}}</span>
+                    <span class="hud-cost-text">{{system.apCost}} AP</span>
+                    {{#if system.spc}}<span class="hud-cost-text sp" style="margin-left: 4px;">{{system.spc}} SP</span>{{/if}}
+                    {{#if system.resolvedDmg}}<span class="hud-dmg-formula">{{system.resolvedDmg}}</span>{{/if}}
+                </div>
+            </div>
+        </button>
+        <div class="hud-control-stack">
+            <button class="info-toggle-btn" data-target="desc-{{_id}}"><i class="fas fa-info"></i></button>
+        </div>
+    </div>
+    <div id="desc-{{_id}}" class="hud-item-description" style="display:none;">
+        {{{system.description.value}}}
+    </div>
+    {{/each}}
+    {{#unless items.spells.length}}
+        <div class="hud-empty-state">No spells found.</div>
+    {{/unless}}
+</div>

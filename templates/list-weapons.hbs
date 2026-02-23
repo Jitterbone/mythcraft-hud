@@ -1,0 +1,38 @@
+<div class="hud-list-container">
+    {{#each items.weapons}}
+    <div class="clickable-card weapon-card-outer">
+        <div class="weapon-row">
+            <!-- Zone 1 & 2: Icon + Main Content (Action Button) -->
+            <button class="hud-action-btn weapon-btn" data-item-id="{{this._id}}">
+                <!-- Zone 1: Icon -->
+                <img src="{{this.img}}" class="hud-item-icon" onerror="this.src='icons/svg/item-bag.svg'"/>
+                
+                <!-- Zone 2: Main Content Stack -->
+                <div class="hud-text-container">
+                    <div class="hud-row-top">
+                        <span class="hud-item-name">{{this.name}}</span>
+                        <span class="hud-atk-badge">Atk: {{this.system.attackLabel}}</span>
+                    </div>
+                    <div class="hud-row-bottom">
+                        <div class="hud-stats-left">
+                            <span class="hud-attr-name">{{this.system.attrKey}}</span> | 
+                            <span class="hud-ap-cost">{{this.system.apCost}} AP</span>
+                        </div>
+                        <span class="hud-dmg-preview">{{this.system.resolvedDmg}}</span>
+                    </div>
+                </div>
+            </button>
+
+            <!-- Zone 3: Utility (Info Button) -->
+            <button class="info-toggle-btn" data-target="desc-{{this._id}}">
+                <i class="fas fa-info"></i>
+            </button>
+        </div>
+        <div id="desc-{{this._id}}" class="hud-item-description" style="display: none;">
+            {{{this.system.description.value}}}
+        </div>
+    </div>
+    {{else}}
+    <div class="hud-empty-state">No Weapons Equipped</div>
+    {{/each}}
+</div>

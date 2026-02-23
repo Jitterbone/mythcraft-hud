@@ -1,0 +1,49 @@
+<div class="hud-list-container">
+    {{#if items.talents.length}}
+    <div class="hud-section-header">Talents</div>
+    {{#each items.talents}}
+    <div class="hud-card-layout">
+        <button class="hud-action-btn feature-btn" data-item-id="{{_id}}">
+            <img class="hud-item-icon" src="{{img}}">
+            <div class="hud-text-container">
+                <div class="hud-row-top">
+                    <span class="hud-item-name">{{name}}</span>
+                </div>
+            </div>
+        </button>
+        <div class="hud-control-stack">
+            <button class="info-toggle-btn" data-target="desc-{{_id}}"><i class="fas fa-info"></i></button>
+        </div>
+    </div>
+    <div id="desc-{{_id}}" class="hud-item-description" style="display:none;">
+        {{{system.description.value}}}
+    </div>
+    {{/each}}
+    {{/if}}
+
+    {{#if items.features.length}}
+    <div class="hud-section-header">Features</div>
+    {{#each items.features}}
+    <div class="hud-card-layout">
+        <button class="hud-action-btn feature-btn" data-item-id="{{_id}}">
+            <img class="hud-item-icon" src="{{img}}">
+            <div class="hud-text-container">
+                <div class="hud-row-top">
+                    <span class="hud-item-name">{{name}}</span>
+                </div>
+            </div>
+        </button>
+        <div class="hud-control-stack">
+            <button class="info-toggle-btn" data-target="desc-{{_id}}"><i class="fas fa-info"></i></button>
+        </div>
+    </div>
+    <div id="desc-{{_id}}" class="hud-item-description" style="display:none;">
+        {{{system.description.value}}}
+    </div>
+    {{/each}}
+    {{/if}}
+    
+    {{#unless items.hasFeatures}}
+        <div class="hud-empty-state">No features found.</div>
+    {{/unless}}
+</div>

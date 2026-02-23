@@ -1,0 +1,16 @@
+<div class="hud-list-container">
+    {{#if saves}}
+        {{#each saves as |bonus saveId|}}
+        <div class="hud-item-card">
+            <button class="hud-action-btn hud-save-btn" data-save-id="{{saveId}}" title="Roll {{saveId}}">
+                <div class="hud-item-details">
+                    <span class="hud-item-name">{{capitalize saveId}} Save</span>
+                    <span class="hud-save-bonus">{{#if (gt bonus 0)}}+{{/if}}{{bonus}}</span>
+                </div>
+            </button>
+        </div>
+        {{/each}}
+    {{else}}
+        <div class="hud-empty-state">No Saves Available</div>
+    {{/if}}
+</div>

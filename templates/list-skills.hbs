@@ -1,0 +1,16 @@
+<div class="hud-list-container">
+    {{#if skills}}
+        {{#each skills as |bonus skillId|}}
+        <div class="hud-item-card">
+            <button class="hud-action-btn hud-skill-btn" data-skill-id="{{skillId}}" title="Roll {{skillId}}">
+                <div class="hud-item-details">
+                    <span class="hud-item-name">{{capitalize skillId}}</span>
+                    <span class="hud-skill-bonus">{{#if (gt bonus 0)}}+{{/if}}{{bonus}}</span>
+                </div>
+            </button>
+        </div>
+        {{/each}}
+    {{else}}
+        <div class="hud-empty-state">No Skills Available</div>
+    {{/if}}
+</div>
