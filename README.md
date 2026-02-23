@@ -216,4 +216,4 @@ git tag -d v0.8.1-beta && git push --delete origin v0.8.1-beta
 
 ## License
 
-This module is created for use with Foundry VTT and the Mythcraft system.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

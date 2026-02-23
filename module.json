@@ -1,17 +1,30 @@
 {
   "id": "mythcraft-hud",
   "title": "Mythcraft HUD",
-  "description": "A modular, persistent contextual HUD for MythCraft.",
+  "description": "A modular, persistent contextual HUD for the Mythcraft system in Foundry VTT.",
   "version": "0.8.1-beta",
-  "authors": [{ "name": "Jitterbone" }],
-  "esmodules": ["scripts/main.js"],
-  "styles": ["styles/myth-hud.css"],
-  "compatibility": { "minimum": "13", "verified": "13" },
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
+  "authors": [
+    {
+      "name": "Jitterbone"
+    }
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/myth-hud.css"
+  ],
   "relationships": {
     "systems": [{
       "id": "mythcraft",
       "type": "system",
       "compatibility": { "minimum": "0.6.4", "verified": "0.6.4" }
     }]
-  }
+  },
+  "url": "https://github.com/Jitterbone/mythcraft-hud",
+  "license": "MIT"
 }

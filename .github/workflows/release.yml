@@ -1,0 +1,88 @@
+name: Create Release and Package Module
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+*' # Triggers on tags like v1.0.0 or v1.0.0-beta
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      # This permission is required to create a release and upload assets
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get Module Version
+        id: module-version
+        run: |
+          echo "version_number=$(jq -r .version module.json)" >> $GITHUB_OUTPUT
+
+      - name: Verify version matches tag
+        run: |
+          TAG_VERSION="${{ github.ref_name }}"
+          # Strip 'v' prefix from tag for comparison
+          TAG_VERSION="${TAG_VERSION#v}"
+          MODULE_VERSION="${{ steps.module-version.outputs.version_number }}"
+          if [[ "$TAG_VERSION" != "$MODULE_VERSION" ]]; then
+            echo "Error: Tag version ($TAG_VERSION) does not match module.json version ($MODULE_VERSION)."
+            exit 1
+          fi
+
+      - name: Check for Pre-release
+        id: prerelease-check
+        run: |
+          if [[ "${{ steps.module-version.outputs.version_number }}" == *-* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Manifest and Download URLs
+        run: |
+          TAG="${{ github.ref_name }}"
+          # Use jq to inject the correct URLs into a temporary file, then overwrite the original
+          jq \
+            --arg manifest "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.json" \
+            --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.zip" \
+            '.manifest = $manifest | .download = $download' \
+            module.json > module.json.tmp && mv module.json.tmp module.json
+
+      - name: Create ZIP package
+        run: |
+          # Exclude development files from the package
+          zip -r ./module.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Version ${{ steps.module-version.outputs.version_number }}
+          draft: false
+          prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
+
+      - name: Upload module.zip to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./module.zip
+          asset_name: module.zip
+          asset_content_type: application/zip
+
+      - name: Upload module.json to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./module.json
+          asset_name: module.json
+          asset_content_type: application/json

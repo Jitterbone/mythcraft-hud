@@ -53,6 +53,73 @@ Hooks.once('init', () => {
     document.head.appendChild(style);
 
    // Template override for chat messages
+    // Helper function to determine the label and flavor for a roll.
+    const _getRollContext = (flavor, formula, rollOptions = {}) => {
+        let resultLabel = "SYSTEM ROLL";
+        const flavorLower = flavor.toLowerCase();
+
+        // Attribute list for keyword detection
+        const attributes = ["strength", "str", "agility", "agi", "dexterity", "dex", "endurance", "end", "constitution", "con", "stamina", "intelligence", "int", "awareness", "awa", "perception", "per", "wisdom", "wis", "charisma", "cha", "luck", "lck"];
+
+        // Regex for formula detection
+        const attrMatch = formula.match(/@(attributes?|abilities?|ability)\.([a-zA-Z0-9_]+)/i);
+        const skillMatch = formula.match(/@skills?\.([a-zA-Z0-9_\-]+)/i);
+        const saveMatch = formula.match(/@saves?\.([a-zA-Z0-9_]+)/i);
+
+        // Check for Damage/Healing based on options first
+        if (rollOptions.isHeal === true) {
+            resultLabel = "HEALING ROLL";
+        } else if (rollOptions.isHeal === false) {
+            resultLabel = rollOptions.flavor ? `${rollOptions.flavor.toUpperCase()} DAMAGE` : "DAMAGE ROLL";
+        } else if (rollOptions.attribute) {
+            const attrKey = rollOptions.attribute.toLowerCase();
+            const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck" };
+            const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
+            resultLabel = "ATTRIBUTE CHECK";
+            if (!flavor || flavor === "Roll" || flavor === "System Roll") {
+                flavor = `${fullName} Check`;
+            }
+        } else if (attrMatch) {
+            const attrKey = attrMatch[2].toLowerCase();
+            const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck" };
+            const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
+            resultLabel = "ATTRIBUTE CHECK";
+            if (!flavor || flavor === "Roll" || flavor === "System Roll") {
+                flavor = `${fullName} Check`;
+            }
+        } else if (skillMatch) {
+            const skillKey = skillMatch[1].toLowerCase();
+            const skillName = skillKey.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+            resultLabel = "SKILL CHECK";
+            if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
+                flavor = `${skillName} Check`;
+            }
+        } else if (saveMatch) {
+            const saveKey = saveMatch[1].toLowerCase();
+            const saveName = saveKey.charAt(0).toUpperCase() + saveKey.slice(1);
+            resultLabel = "SAVE CHECK";
+            if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
+                flavor = `${saveName} Save`;
+            }
+        } else if (flavorLower.includes("attribute") || flavorLower.includes("ability")) {
+            resultLabel = "ATTRIBUTE CHECK";
+        } else if (flavorLower.includes("save")) {
+            resultLabel = "SAVE CHECK";
+        } else if (flavorLower.includes("skill")) {
+            resultLabel = "SKILL CHECK";
+        } else if (flavorLower.includes("attack")) {
+            resultLabel = flavor.includes("damage") ? "DAMAGE ROLL" : "ATTACK ROLL";
+        } else if (attributes.some(a => flavorLower.includes(a))) {
+            resultLabel = "ATTRIBUTE CHECK";
+        } else if (flavorLower.includes("check")) {
+            resultLabel = "ATTRIBUTE CHECK";
+        } else if (flavor) {
+            resultLabel = flavor.toUpperCase();
+        }
+
+        return { resultLabel, flavor };
+    };
+
     // WARNING: This is a monkey patch of a core Foundry method. It is powerful but can be fragile.
     // If chat message creation breaks in a future Foundry version, this is a likely place to investigate.
     // The goal is to intercept all rolls and re-format them into a custom statblock card.
@@ -76,100 +143,16 @@ Hooks.once('init', () => {
                 const total = roll.total;
                 const formula = roll.formula;
                 // Fallback to roll options flavor if message flavor is empty
-                let flavor = d.flavor || roll.options?.flavor || "";
+                const initialFlavor = d.flavor || roll.options?.flavor || "";
 
-                // Attribute/Skill/Save Detection
-                let resultLabel = "SYSTEM ROLL";
+                let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options);
+
                 let resultClass = "";
                 let buttonHtml = ""; // Action buttons container
-                
-                const flavorLower = flavor.toLowerCase();
-
-                // Attribute list
-                const attributes = [
-                    "strength", "str", 
-                    "agility", "agi", "dexterity", "dex", 
-                    "endurance", "end", "constitution", "con", "stamina",
-                    "intelligence", "int", 
-                    "awareness", "awa", "perception", "per", "wisdom", "wis",
-                    "charisma", "cha",
-                    "luck", "lck"
-                ];
-
-                // Formula regex
-                const attrMatch = formula.match(/@(attributes?|abilities?|ability)\.([a-zA-Z0-9_]+)/i);
-                const skillMatch = formula.match(/@skills?\.([a-zA-Z0-9_\-]+)/i);
-                const saveMatch = formula.match(/@saves?\.([a-zA-Z0-9_]+)/i);
-                
-                // Check for Damage/Healing based on options
                 if (roll.options?.isHeal === true) {
-                    resultLabel = "HEALING ROLL";
                     buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
                 } else if (roll.options?.isHeal === false) {
-                    // It's damage
-                    resultLabel = "DAMAGE ROLL";
-                    if (roll.options.flavor) resultLabel = `${roll.options.flavor.toUpperCase()} DAMAGE`;
                     buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
-                } else if (roll.options?.attribute) {
-                    const attrKey = roll.options.attribute.toLowerCase();
-                    const attrNames = {
-                        str: "Strength", strength: "Strength",
-                        agi: "Agility", dex: "Dexterity", dexterity: "Dexterity",
-                        end: "Endurance", con: "Constitution", constitution: "Constitution", stamina: "Stamina",
-                        int: "Intelligence", intelligence: "Intelligence",
-                        awa: "Awareness", per: "Perception", perception: "Perception", wis: "Wisdom", wisdom: "Wisdom",
-                        cha: "Charisma", charisma: "Charisma",
-                        lck: "Luck", luck: "Luck"
-                    };
-                    const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
-                    resultLabel = "ATTRIBUTE CHECK";
-                    if (!flavor || flavor === "Roll" || flavor === "System Roll") {
-                        flavor = `${fullName} Check`;
-                    }
-                } else if (attrMatch) {
-                    const attrKey = attrMatch[2].toLowerCase();
-                    const attrNames = {
-                        str: "Strength", strength: "Strength",
-                        agi: "Agility", dex: "Dexterity", dexterity: "Dexterity",
-                        end: "Endurance", con: "Constitution", constitution: "Constitution", stamina: "Stamina",
-                        int: "Intelligence", intelligence: "Intelligence",
-                        awa: "Awareness", per: "Perception", perception: "Perception", wis: "Wisdom", wisdom: "Wisdom",
-                        cha: "Charisma", charisma: "Charisma",
-                        lck: "Luck", luck: "Luck"
-                    };
-                    const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
-                    resultLabel = "ATTRIBUTE CHECK";
-                    if (!flavor || flavor === "Roll" || flavor === "System Roll") {
-                        flavor = `${fullName} Check`;
-                    }
-                } else if (skillMatch) {
-                    const skillKey = skillMatch[1].toLowerCase();
-                    const skillName = skillKey.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
-                    resultLabel = "SKILL CHECK";
-                    if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
-                        flavor = `${skillName} Check`;
-                    }
-                } else if (saveMatch) {
-                    const saveKey = saveMatch[1].toLowerCase();
-                    const saveName = saveKey.charAt(0).toUpperCase() + saveKey.slice(1);
-                    resultLabel = "SAVE CHECK";
-                    if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
-                        flavor = `${saveName} Save`;
-                    }
-                } else if (flavorLower.includes("attribute") || flavorLower.includes("ability")) {
-                    resultLabel = "ATTRIBUTE CHECK";
-                } else if (flavorLower.includes("save")) {
-                    resultLabel = "SAVE CHECK";
-                } else if (flavorLower.includes("skill")) {
-                    resultLabel = "SKILL CHECK";
-                } else if (flavorLower.includes("attack")) {
-                    resultLabel = flavor.includes("damage") ? "DAMAGE ROLL" : "ATTACK ROLL";
-                } else if (attributes.some(a => flavorLower.includes(a))) {
-                    resultLabel = "ATTRIBUTE CHECK";
-                } else if (flavorLower.includes("check")) {
-                    resultLabel = "ATTRIBUTE CHECK";
-                } else if (flavor) {
-                    resultLabel = flavor.toUpperCase();
                 }
 
                 // Crit logic
@@ -357,6 +340,99 @@ Hooks.once('ready', () => {
         }
     });
 
+    // --- HUD & TOKEN HOOKS ---
+
+    // Ensure hotbar stays hidden when UI is toggled
+    Hooks.on('toggleSidebar', (sidebar, collapsed) => {
+        const hotbar = document.getElementById('hotbar');
+        if (hotbar) hotbar.style.display = 'none';
+    });
+
+    // When a token is controlled, show HUD for that actor
+    Hooks.on('controlToken', (token, controlled) => {
+        if (!hudInstance) return;
+        if (controlled) {
+            console.log(`Mythcraft HUD | Token controlled: ${token.actor.name}`);
+            hudInstance.activeToken = token;
+            hudInstance.actor = null; // Clear the fallback actor
+            hudInstance.render({ force: true });
+            if (token.inCombat) updateTokenAP(token);
+        } else {
+            updateTokenAP(token);
+        }
+    });
+
+    // Consolidated hook to refresh the HUD when any relevant document changes.
+    const refreshHUDOnUpdate = (document) => {
+        if (!hudInstance || !hudInstance.rendered) return;
+        const targetActor = hudInstance.targetActor;
+        if (!targetActor) return;
+
+        const isRelevant = (document.documentName === "Actor" && document.id === targetActor.id) ||
+                           (document.documentName === "Item" && document.actor?.id === targetActor.id);
+
+        if (isRelevant) {
+            console.log(`Mythcraft HUD | ${document.documentName} '${document.name}' updated, refreshing HUD.`);
+            hudInstance.render();
+        }
+    };
+
+    Hooks.on('updateActor', (actor, changes, options, userId) => {
+        refreshHUDOnUpdate(actor);
+        if (changes.system?.ap) {
+            actor.getActiveTokens().forEach(t => {
+                if (t.controlled) updateTokenAP(t);
+            });
+        }
+    });
+    Hooks.on('updateItem', (item, changes, options, userId) => refreshHUDOnUpdate(item));
+    Hooks.on('createItem', (item, options, userId) => refreshHUDOnUpdate(item));
+    Hooks.on('deleteItem', (item, options, userId) => refreshHUDOnUpdate(item));
+
+    // --- COMBAT & AP HOOKS ---
+
+    // Update AP when turn changes
+    Hooks.on('updateCombat', async (combat, updateData, options, userId) => {
+        canvas.tokens.controlled.forEach(t => updateTokenAP(t));
+        
+        // Reactive AP Logic (GM Only)
+        if (game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
+            const combatant = combat.combatant;
+            if (!combatant || !combatant.actor) return;
+
+            const actor = combatant.actor;
+            
+            let level = 1;
+            if (actor.system.level?.value !== undefined) level = Number(actor.system.level.value);
+            else if (actor.system.level !== undefined) level = Number(actor.system.level);
+            
+            if (actor.type === 'npc') {
+                 const cr = Number(actor.system.cr);
+                 if (!isNaN(cr)) level = cr;
+            }
+            if (isNaN(level)) level = 1;
+
+            const maxAP = actor.system.ap?.max || 0;
+            const currentAP = actor.system.ap?.value || 0;
+            
+            const reactiveCap = Math.ceil(level / 2) + 1;
+            
+            let newAP = maxAP;
+            
+            if (combat.round > 1) {
+                const carryover = Math.min(currentAP, reactiveCap);
+                newAP += carryover;
+            }
+
+            if (newAP !== currentAP) {
+                await actor.update({ "system.ap.value": newAP });
+            }
+        }
+    });
+
+    Hooks.on('deleteCombat', () => {
+        canvas.tokens.controlled.forEach(t => updateTokenAP(t));
+    });
 });
 
 // --- AP DISPLAY LOGIC ---
