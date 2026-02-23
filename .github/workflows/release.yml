@@ -3,13 +3,12 @@ name: Create Release and Package Module
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*' # Triggers on tags like v1.0.0 or v1.0.0-beta
+      - 'v[0-9]+.[0-9]+.[0-9]+*' # Allow for suffixes like -beta
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      # This permission is required to create a release and upload assets
       contents: write
 
     steps:
@@ -24,11 +23,11 @@ jobs:
       - name: Verify version matches tag
         run: |
           TAG_VERSION="${{ github.ref_name }}"
-          # Strip 'v' prefix from tag for comparison
+          # Strip 'v' prefix from tag
           TAG_VERSION="${TAG_VERSION#v}"
           MODULE_VERSION="${{ steps.module-version.outputs.version_number }}"
           if [[ "$TAG_VERSION" != "$MODULE_VERSION" ]]; then
-            echo "Error: Tag version ($TAG_VERSION) does not match module.json version ($MODULE_VERSION)."
+            echo "Tag version ($TAG_VERSION) does not match module.json version ($MODULE_VERSION)."
             exit 1
           fi
 
@@ -42,18 +41,15 @@ jobs:
           fi
 
       - name: Update Manifest and Download URLs
+        shell: bash
         run: |
           TAG="${{ github.ref_name }}"
-          # Use jq to inject the correct URLs into a temporary file, then overwrite the original
-          jq \
-            --arg manifest "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.json" \
-            --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.zip" \
-            '.manifest = $manifest | .download = $download' \
-            module.json > module.json.tmp && mv module.json.tmp module.json
+          jq --arg manifest "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.json" \
+             --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.zip" \
+             '.manifest = $manifest | .download = $download' module.json > module.json.tmp && mv module.json.tmp module.json
 
       - name: Create ZIP package
         run: |
-          # Exclude development files from the package
           zip -r ./module.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
 
       - name: Create Release
