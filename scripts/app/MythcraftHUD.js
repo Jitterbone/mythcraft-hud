@@ -9,6 +9,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         this.activeToken = null;
         this.actor = null; // Fallback actor (for players)
         this.currentTab = null; // Remembers what list is currently open
+        this._rescuedPlayers = null; // To hold the detached players list during re-render
     }
 
     static DEFAULT_OPTIONS = {
@@ -56,11 +57,11 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
     };
 
     async render(options) {
-        // Rescue the players element before the HTML is overwritten
-        const players = document.getElementById("players");
-        if (players && players.classList.contains("integrated-players")) {
-            document.body.appendChild(players);
-            players.classList.remove("integrated-players");
+        // Rescue the players element by detaching it, preventing a visual jump during re-render.
+        const players = document.querySelector("#players.integrated-players");
+        if (players) {
+            this._rescuedPlayers = players;
+            players.remove(); // Detaches from DOM, preserving the element in memory.
         }
         return super.render(options);
     }
@@ -270,6 +271,31 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         document.body.classList.add("myth-hud-active");
         const html = $(this.element);
 
+        // If the main layout container is missing (because hasActor is false),
+        // create a minimal version to hold the players list and keep the layout consistent.
+        if (!context.hasActor && html.find('.hud-layout-container').length === 0) {
+            const wrapper = html.find('#mythcraft-hud-wrapper');
+            if (wrapper.length) {
+                const minimalLayout = `
+                    <div class="hud-layout-container">
+                        <div class="hud-left-column">
+                            <div id="hud-players-mount"></div>
+                        </div>
+                        <div class="hud-right-column">
+                            <!-- Empty right column to maintain layout -->
+                        </div>
+                    </div>
+                `;
+                // Inject before the hotbar or at the start of the wrapper.
+                const hotbar = wrapper.find('.mythcraft-hotbar');
+                if (hotbar.length) {
+                    hotbar.before(minimalLayout);
+                } else {
+                    wrapper.prepend(minimalLayout);
+                }
+            }
+        }
+
         this._renderGMCharacterSwitcher(html, context);
 
         // --- EVENT LISTENERS ---
@@ -331,14 +357,18 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         });
 
         // --- UI INTEGRATION LOGIC ---
-        const players = document.getElementById("players");
         const playersMount = html.find("#hud-players-mount")[0];
 
-        // 1. Handle Left Side (Integrate Players) - Always active now
-        if (players && playersMount) {
-            // Move the players list into the HUD
-            playersMount.appendChild(players);
-            players.classList.add("integrated-players");
+        // If a mount point exists in our HUD...
+        if (playersMount) {
+            // Find the #players list, whether it's our rescued copy or the one in the body.
+            const players = this._rescuedPlayers || document.getElementById("players");
+            if (players) {
+                // Move it into the HUD.
+                playersMount.appendChild(players);
+                players.classList.add("integrated-players");
+                this._rescuedPlayers = null; // Clear the reference
+            }
         }
 
         this.updatePosition();

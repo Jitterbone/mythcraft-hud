@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.8.3-beta] - 2024-05-24
+
+### Fixed
+- **Blind Roll Privacy**: Ensured that "Blind GM Rolls" are now completely hidden from the player who made the roll, preserving the custom chat card UI for the GM.
+- **Hit/Miss Privacy**: Corrected the "Hide Hit/Miss Info from Players" setting by implementing a robust, multi-layered solution using both CSS and a `renderChatMessage` hook to reliably hide GM-only information from players.
+- **UI Consistency**: Prevented blind rolls from losing their custom UI styling, ensuring a consistent look and feel for all chat cards visible to the GM.
+
 ## [0.8.2-beta] - 2024-05-24
 
 ### Added

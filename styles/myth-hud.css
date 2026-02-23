@@ -962,6 +962,14 @@
     color: #fff;
 }
 
+.mod-toggle-btn::before {
+    font-family: "Font Awesome 5 Free";
+    font-weight: 900;
+    content: "\f067"; /* fa-plus */
+    font-size: 1em;
+    line-height: 1;
+}
+
 .hud-control-stack .mod-toggle-btn {
     width: 100%;
     flex: 1;
@@ -1626,4 +1634,39 @@ label.tac-label-td { color: #e74c3c !important; }
 /* Hide duplicate system buttons */
 .chat-message button.apply-damage {
     display: none !important;
+}
+
+/* ============================================
+   EMBEDDED HIT/MISS BOX
+   ============================================ */
+
+.mythcraft-hit-box {
+    margin-top: 8px;
+    padding: 8px;
+    background: #1a1c1e;
+    border-left: 3px solid #d3c4a3;
+    color: #ccc;
+    font-size: 0.9em;
+}
+
+/* 
+  CSS-based security to hide GM-only blocks from players.
+  This is faster than the JS hook and prevents any "flash" of content.
+  Foundry adds the 'gm' class to the body tag for GM users.
+*/
+.mythcraft-hit-box[data-visibility="gm"] {
+    display: none;
+}
+body.gm .mythcraft-hit-box[data-visibility="gm"] {
+    display: block;
+}
+
+.mythcraft-hit-box[data-visibility="gm"]::before {
+    content: "[GM ONLY]";
+    display: block;
+    font-size: 0.8em;
+    font-weight: bold;
+    color: #e74c3c;
+    margin-bottom: 4px;
+    text-transform: uppercase;
 }

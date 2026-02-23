@@ -342,19 +342,26 @@ export class ActionHandler {
                 
             // Target & Hit Logic
             const targets = game.user.targets;
-            if (targets.size > 0) {
+            if (roll && targets.size > 0) {
                 const target = Array.from(targets)[0];
                 const targetActor = target.actor;
                 const targetAR = targetActor?.system?.defenses?.ar ?? 10;
                 const isHit = roll.total >= targetAR;
-                
+
+                const hideInfo = game.settings.get('mythcraft-hud', 'hideHitMissInfo');
+                const visibilityAttr = hideInfo ? 'data-visibility="gm"' : '';
+
+                // The content to be shown or hidden
+                const hitInfoContent = `
+                    AR: ${targetAR} <span style="font-weight:bold; color:${isHit ? '#2ecc71' : '#e74c3c'}">
+                        [${isHit ? "HIT" : "MISS"}]
+                    </span>`;
+
                 extraHtml += `
                 <div class="myth-hud-target-info" style="margin-top: 4px; padding: 4px; border-top: 1px solid #3a7a7f; font-size: 0.9em;">
                     <div>Target: <strong>${target.name}</strong></div>
-                    <div class="secret" style="color: #ccc;">
-                        AR: ${targetAR} <span style="font-weight:bold; color:${isHit ? '#2ecc71' : '#e74c3c'}">
-                            [${isHit ? "HIT" : "MISS"}]
-                        </span>
+                    <div class="mythcraft-hit-box" ${visibilityAttr}>
+                        ${hitInfoContent}
                     </div>
                 </div>`;
             }
@@ -468,15 +475,19 @@ export class ActionHandler {
             extraHtml: extraHtml,
             isSpell: isSpell,
             spCost: options.spCost || 0,
-            apCost: options.apCost || 0
+            apCost: options.apCost || 0,
+            rollMode: options.rollMode
         });
     }
 
     // ===== SKILL ROLLS =====
 
     static async createProfessionalChatCard(data) {
-        const { actor, title, roll, label, icon, description, extraHtml, isSpell, spCost, apCost } = data;
+        const { actor, title, roll, label, icon, description, extraHtml, isSpell, spCost, apCost, rollMode } = data;
         
+        const chatRollMode = rollMode || game.settings.get("core", "rollMode");
+        const isBlind = chatRollMode === 'blindroll';
+
         let resultClass = "";
         let resultLabel = label || "Result";
         
@@ -527,11 +538,14 @@ export class ActionHandler {
 
         // Roll Result
         if (roll) {
+            const resultBlock = `
+                <div class="roll-value">${roll.total}</div>
+                <div class="roll-formula">${roll.formula}</div>
+            `;
             content += `
                 <div class="roll-result ${resultClass}">
                     <div class="roll-label" style="color: #d3c4a3;">${resultLabel}</div>
-                    <div class="roll-value">${roll.total}</div>
-                    <div class="roll-formula">${roll.formula}</div>
+                    ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
                 </div>`;
         }
 
@@ -540,17 +554,27 @@ export class ActionHandler {
         
         content += `</div>`;
 
-        if (roll && game.dice3d) game.dice3d.showForRoll(roll);
-
         const muteDice = game.settings.get('mythcraft-hud', 'disableDiceSounds');
 
-        return ChatMessage.create({
+        const chatData = {
             user: game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: actor }),
             content: content,
             type: CONST.CHAT_MESSAGE_TYPES.OTHER,
             sound: (roll && !muteDice) ? CONFIG.sounds.dice : null
-        });
+        };
+
+        // Apply the roll mode. This will correctly set `blind: true` for blind rolls,
+        // preventing the message from being sent to the rolling player at all.
+        ChatMessage.applyRollMode(chatData, chatRollMode);
+
+        if (roll && game.dice3d) {
+            // For 3D dice, pass the whisper targets and the original `isBlind` flag
+            // to ensure Dice So Nice also hides the roll from the player.
+            game.dice3d.showForRoll(roll, game.user, true, chatData.whisper, isBlind);
+        }
+
+        return ChatMessage.create(chatData);
     }
 
     static async createChatCard(actor, title, roll, label = "Result") {

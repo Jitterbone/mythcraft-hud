@@ -2,7 +2,7 @@
   "id": "mythcraft-hud",
   "title": "Mythcraft HUD",
   "description": "A modular, persistent contextual HUD for the Mythcraft system in Foundry VTT.",
-  "version": "0.8.2-beta",
+  "version": "0.8.3-beta",
   "compatibility": {
     "minimum": "13",
     "verified": "13"

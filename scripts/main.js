@@ -39,6 +39,16 @@ Hooks.once('init', () => {
         default: false
     });
 
+    game.settings.register('mythcraft-hud', 'hideHitMissInfo', {
+        name: "Hide Hit/Miss Info from Players",
+        hint: "When enabled, the AR and Hit/Miss result of an attack will only be visible to the GM.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+        requiresReload: false
+    });
+
     // 1. Dialog & Popup Overhaul (CSS Variables)
     const style = document.createElement('style');
     style.innerHTML = `
@@ -128,6 +138,12 @@ Hooks.once('init', () => {
         const dataArray = Array.isArray(data) ? data : [data];
         
         for (const d of dataArray) {
+            // If this is an initiative roll, let Foundry handle it natively.
+            // This prevents conflicts with the combat tracker and avoids styling the roll,
+            // which is often preferred for clarity in the turn order.
+            if (d.flags?.core?.initiativeRoll) {
+                continue;
+            }
             // Check if it's a roll and not already styled by our HUD
             if (d.rolls && d.rolls.length > 0 && !d.content?.includes("mythcraft-statblock")) {
                 
@@ -176,13 +192,17 @@ Hooks.once('init', () => {
                 }
 
                 // Build new HTML
+                const isBlind = d.blind; // Capture original blind flag
+                const resultBlock = `
+                    <div class="roll-value">${total}</div>
+                    <div class="roll-formula">${formula}</div>
+                `;
                 const newContent = `
                     <div class="mythcraft-statblock">
                         <div class="card-header">${flavor}</div>
                         <div class="roll-result ${resultClass}">
                             <div class="roll-label">${resultLabel}</div>
-                            <div class="roll-value">${total}</div>
-                            <div class="roll-formula">${formula}</div>
+                            ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
                         </div>
                         ${buttonHtml}
                     </div>`;
@@ -191,7 +211,19 @@ Hooks.once('init', () => {
                 d.type = CONST.CHAT_MESSAGE_TYPES.OTHER; // Prevent default roll rendering
                 d.flavor = ""; // Clear flavor to avoid duplication
                 
-                if (!d.sound) d.sound = CONFIG.sounds.dice;
+                if (!d.sound && d.rolls?.length > 0) d.sound = CONFIG.sounds.dice;
+
+                // Manually handle 3D dice since we are bypassing the default roll message type.
+                // We must do this because we are changing the message type to OTHER.
+                if (game.dice3d && d.rolls?.length > 0) {
+                    const rollInstance = d.rolls[0];
+                    if (rollInstance instanceof Roll) {
+                        // The original `isBlind` flag tells Dice So Nice to hide the roll from the roller.
+                        // The `d.whisper` array (which is empty for blind rolls) tells it who to show to.
+                        // `d.blind` being true on the message data handles the chat visibility.
+                        game.dice3d.showForRoll(rollInstance, game.user, true, d.whisper, isBlind);
+                    }
+                }
             }
         }
         
@@ -356,9 +388,31 @@ Hooks.once('ready', () => {
             hudInstance.activeToken = token;
             hudInstance.actor = null; // Clear the fallback actor
             hudInstance.render({ force: true });
-            if (token.inCombat) updateTokenAP(token);
         } else {
-            updateTokenAP(token);
+            const lastActor = token.actor;
+            // A token was deselected. Check if any tokens are left.
+            if (canvas.tokens.controlled.length === 0) {
+                if (game.user.character) {
+                    // Player has a default character, revert to it
+                    hudInstance.activeToken = null;
+                    hudInstance.actor = game.user.character;
+                    hudInstance.render({ force: true });
+                } else if (game.user.isGM) {
+                    // GM keeps the last viewed actor displayed to prevent collapse.
+                    hudInstance.activeToken = null;
+                    hudInstance.actor = lastActor;
+                    hudInstance.render({ force: true });
+                }
+            }
+        }
+        // Always update AP display for the token that changed state
+        updateTokenAP(token);
+    });
+
+    // Manually scrub GM-only data from chat cards for players
+    Hooks.on('renderChatMessage', (message, html, data) => {
+        if (!game.user.isGM) {
+            html.find('.mythcraft-hit-box[data-visibility="gm"]').remove();
         }
     });
 
@@ -480,8 +534,8 @@ function updateTokenAP(token) {
     });
 
     const text = new PIXI.Text(`${ap}`, style);
-    text.anchor.set(0.5);
-    text.position.set(token.w / 2, token.h / 2);
+    text.anchor.set(0.5, 1); // Anchor to bottom-center
+    text.position.set(token.w / 2, 0); // Position at top-center of the token
     token.addChild(text);
     apTextMap.set(token.id, text);
 }
