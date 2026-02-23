@@ -65,6 +65,39 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         return super.render(options);
     }
 
+    /**
+     * Groups actor skills by their primary attribute.
+     * @param {object} skills - The actor's system.skills object.
+     * @param {Array<object>} pairs - The attribute/defense pairs for the HUD.
+     * @returns {object} An object with attribute IDs as keys and arrays of skill data as values.
+     * @private
+     */
+    _groupSkillsByAttribute(skills = {}, pairs = []) {
+        const skillsByAttr = {};
+        pairs.forEach(p => skillsByAttr[p.id] = []);
+
+        // Fallback map for skills if attribute is missing on the skill object
+        const skillMap = {
+            'athletics': 'str', 'sprinting': 'str', 'climbing': 'str', 'swimming': 'str',
+            'acrobatics': 'dex', 'balancing': 'dex', 'tumbling': 'dex', 'sleight of hand': 'dex', 'stealth': 'dex', 'hiding': 'dex', 'moving silently': 'dex',
+            'endurance': 'end', 'forced march': 'end', 'holding breath': 'end',
+            'arcana': 'int', 'history': 'int', 'investigation': 'int', 'investigating': 'int', 'nature': 'int', 'religion': 'int', 'engineering': 'int', 'crafting': 'int', 'cooking': 'int',
+            'animal handling': 'awa', 'insight': 'awa', 'empathy': 'awa', 'medicine': 'awa', 'perception': 'awa', 'survival': 'awa', 'eavesdropping': 'awa',
+            'deception': 'cha', 'deceiving': 'cha', 'intimidation': 'cha', 'performance': 'cha', 'persuasion': 'cha', 'persuading': 'cha'
+        };
+
+        for (const [key, skill] of Object.entries(skills)) {
+            let attr = skill.attribute || skill.ability;
+            if (!attr && skillMap[key.toLowerCase()]) attr = skillMap[key.toLowerCase()];
+            
+            if (attr && skillsByAttr[attr]) {
+                const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
+                skillsByAttr[attr].push({ id: key, label: skill.label || (key.charAt(0).toUpperCase() + key.slice(1)), value: (bonus >= 0 ? "+" : "") + bonus });
+            }
+        }
+        return skillsByAttr;
+    }
+
     async _prepareContext(options) {
         // Always get hotbar data, even if no actor is selected
         const hotbarData = this.getHotbarMacros();
@@ -117,33 +150,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         ];
         
         // Group Skills by Attribute
-        const skills = system.skills || {};
-        const skillsByAttr = {};
-        pairs.forEach(p => skillsByAttr[p.id] = []);
-
-        // Fallback map for skills if attribute is missing on the skill object
-        const skillMap = {
-            'athletics': 'str', 'sprinting': 'str', 'climbing': 'str', 'swimming': 'str',
-            'acrobatics': 'dex', 'balancing': 'dex', 'tumbling': 'dex', 'sleight of hand': 'dex', 'stealth': 'dex', 'hiding': 'dex', 'moving silently': 'dex',
-            'endurance': 'end', 'forced march': 'end', 'holding breath': 'end',
-            'arcana': 'int', 'history': 'int', 'investigation': 'int', 'investigating': 'int', 'nature': 'int', 'religion': 'int', 'engineering': 'int', 'crafting': 'int', 'cooking': 'int',
-            'animal handling': 'awa', 'insight': 'awa', 'empathy': 'awa', 'medicine': 'awa', 'perception': 'awa', 'survival': 'awa', 'eavesdropping': 'awa',
-            'deception': 'cha', 'deceiving': 'cha', 'intimidation': 'cha', 'performance': 'cha', 'persuasion': 'cha', 'persuading': 'cha'
-        };
-
-        for (const [key, skill] of Object.entries(skills)) {
-            let attr = skill.attribute || skill.ability;
-            if (!attr && skillMap[key.toLowerCase()]) attr = skillMap[key.toLowerCase()];
-            
-            if (attr && skillsByAttr[attr]) {
-                const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
-                skillsByAttr[attr].push({
-                    id: key,
-                    label: skill.label || (key.charAt(0).toUpperCase() + key.slice(1)),
-                    value: (bonus >= 0 ? "+" : "") + bonus
-                });
-            }
-        }
+        const skillsByAttr = this._groupSkillsByAttribute(system.skills, pairs);
 
         const attributeList = pairs.map(p => ({
             id: p.id,

@@ -9,7 +9,9 @@
   },
   "authors": [
     {
-      "name": "Jitterbone"
+      "name": "Jitterbone",
+      "url": "https://ko-fi.com/jitterbone",
+      "discord": "jitterbone"
     }
   ],
   "esmodules": [
