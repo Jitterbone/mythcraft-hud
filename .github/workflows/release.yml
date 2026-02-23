@@ -46,11 +46,28 @@ jobs:
           TAG="${{ github.ref_name }}"
           jq --arg manifest "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.json" \
              --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.zip" \
-             '.manifest = $manifest | .download = $download' module.json > module.json.tmp && mv module.json.tmp module.json
+             '.manifest = $manifest | .download = $download' module.json > module.json.tmp && mv module.json.tmp module.json          
 
       - name: Create ZIP package
         run: |
           zip -r ./module.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Version ${{ steps.module-version.outputs.version_number }}
+          draft: false
+          prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1.1.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
 
       - name: Create Release
         id: create_release
@@ -81,4 +98,10 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./module.json
           asset_name: module.json
+
+          asset_content_type: application/json
+          files: |
+              module.zip
+              module.json
+
           asset_content_type: application/json
