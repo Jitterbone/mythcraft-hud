@@ -1,0 +1,50 @@
+<div class="hud-rest-list">
+    <div class="hud-rest-row {{#if restFeatures.hasBreathFeature}}rest-feature-active{{/if}}" data-rest-type="breath">
+        <i class="fas fa-hourglass-half"></i>
+        <span class="rest-name">Catch your Breath</span>
+        <span class="rest-duration">5 Minutes</span>
+        {{#if restFeatures.breathFeature}}
+        <div class="hud-feature-tooltip">
+            <div class="tooltip-header">
+                <img src="{{restFeatures.breathFeature.img}}">
+                <span>{{restFeatures.breathFeature.name}}</span>
+            </div>
+            <div class="tooltip-body">
+                {{{restFeatures.breathFeature.system.description.value}}}
+            </div>
+        </div>
+        {{/if}}
+    </div>
+    <div class="hud-rest-row {{#if restFeatures.hasRecoupFeature}}rest-feature-active{{/if}}" data-rest-type="recoup">
+        <i class="fas fa-campfire"></i>
+        <span class="rest-name">Recoup</span>
+        <span class="rest-duration">1 Hour</span>
+        {{#if restFeatures.recoupFeature}}
+        <div class="hud-feature-tooltip">
+            <div class="tooltip-header">
+                <img src="{{restFeatures.recoupFeature.img}}">
+                <span>{{restFeatures.recoupFeature.name}}</span>
+            </div>
+            <div class="tooltip-body">
+                {{{restFeatures.recoupFeature.system.description.value}}}
+            </div>
+        </div>
+        {{/if}}
+    </div>
+    <div class="hud-rest-row {{#if restFeatures.hasRestFeature}}rest-feature-active{{/if}}" data-rest-type="rest">
+        <i class="fas fa-bed"></i>
+        <span class="rest-name">Take a Rest</span>
+        <span class="rest-duration">8 Hours</span>
+        {{#if restFeatures.restFeature}}
+        <div class="hud-feature-tooltip">
+            <div class="tooltip-header">
+                <img src="{{restFeatures.restFeature.img}}">
+                <span>{{restFeatures.restFeature.name}}</span>
+            </div>
+            <div class="tooltip-body">
+                {{{restFeatures.restFeature.system.description.value}}}
+            </div>
+        </div>
+        {{/if}}
+    </div>
+</div>

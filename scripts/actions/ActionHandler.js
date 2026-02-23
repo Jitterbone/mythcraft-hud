@@ -480,7 +480,67 @@ export class ActionHandler {
         });
     }
 
-    // ===== SKILL ROLLS =====
+    // ===== REST LOGIC =====
+
+    static async executeRest(actor, restType) {
+        const updates = {};
+        const changes = [];
+        const system = actor.system;
+        const hp = system.hp;
+        const sp = system.sp;
+        const deathPoints = system.death?.value ?? 0; // Assuming path system.death.value
+
+        switch (restType) {
+            case 'breath':
+                if (hp.value === 0) {
+                    updates['system.hp.value'] = 1;
+                    changes.push("Regained 1 HP from 0.");
+                }
+                break;
+
+            case 'recoup':
+                const isBloodied = hp.value <= hp.max / 2;
+                if (isBloodied) {
+                    const bloodiedThreshold = Math.floor(hp.max / 2);
+                    const healAmount = Math.floor(hp.max / 4);
+                    const potentialHP = hp.value + healAmount;
+                    const finalHP = Math.min(potentialHP, bloodiedThreshold);
+                    const amountRegained = finalHP - hp.value;
+
+                    if (amountRegained > 0) {
+                        updates['system.hp.value'] = finalHP;
+                        changes.push(`Regained ${amountRegained} HP (while Bloodied).`);
+                    }
+                }
+                if (deathPoints > 0) {
+                    updates['system.death.value'] = Math.max(0, deathPoints - 1);
+                    changes.push("Removed 1 Death Point.");
+                }
+                break;
+
+            case 'rest':
+                updates['system.hp.value'] = hp.max;
+                if (sp) updates['system.sp.value'] = sp.max;
+                changes.push(`Fully restored HP to ${hp.max}.`);
+                if (sp) changes.push(`Fully restored SP to ${sp.max}.`);
+
+                const fatigueEffect = actor.effects.find(e => e.name?.toLowerCase() === 'fatigued');
+                if (fatigueEffect) {
+                    await fatigueEffect.delete();
+                    changes.push("Removed the Fatigued condition.");
+                } else if (deathPoints > 0) {
+                    updates['system.death.value'] = 0;
+                    changes.push("Removed all Death Points.");
+                }
+                break;
+        }
+
+        if (Object.keys(updates).length > 0) {
+            await actor.update(updates);
+        }
+
+        return changes;
+    }
 
     static async createProfessionalChatCard(data) {
         const { actor, title, roll, label, icon, description, extraHtml, isSpell, spCost, apCost, rollMode } = data;

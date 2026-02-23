@@ -63,7 +63,20 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             this._rescuedPlayers = players;
             players.remove(); // Detaches from DOM, preserving the element in memory.
         }
-        return super.render(options);
+        
+        try {
+            return await super.render(options);
+        } catch (e) {
+            console.error("Mythcraft HUD | An error occurred during render, restoring players list.", e);
+            // If render fails, we must restore the players list to prevent it from disappearing.
+            if (this._rescuedPlayers) {
+                document.body.appendChild(this._rescuedPlayers);
+                this._rescuedPlayers.classList.remove("integrated-players");
+                this._rescuedPlayers = null;
+            }
+            // Re-throw the error so it's still visible in the console.
+            throw e;
+        }
     }
 
     /**
@@ -128,6 +141,43 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             this._processMultiattack(itemData);
         }
 
+        // Prepare Rest Data - Following user prompt to iterate actor.items directly
+        const relevantItemTypes = ["feature", "talent", "background", "lineage", "profession"];
+        const features = actor.items.filter(i => relevantItemTypes.includes(i.type));
+ 
+        const findRestFeature = (features, name, keyword) => {
+            // This regex looks for patterns like "(x/Restname)" to exclude them.
+            const exclusionRegex = new RegExp(`\\([^/)]+\\/\\s*${keyword}\\s*\\)`, 'i');
+            const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'i');
+ 
+            return features.find(f => {
+                const fName = f.name.toLowerCase();
+                const rawDesc = f.system.description.value || '';
+                // Strip HTML and inline roll syntax for a very clean string for reliable searching.
+                const cleanDesc = rawDesc.replace(/<[^>]+>/g, '').replace(/\[\[.*?\]\]/g, '');
+ 
+                if (fName === name.toLowerCase()) return true;
+ 
+                const hasKeyword = keywordRegex.test(cleanDesc);
+                const isExcluded = exclusionRegex.test(cleanDesc);
+ 
+                return hasKeyword && !isExcluded;
+            });
+        };
+
+        const breathFeature = findRestFeature(features, 'Catch your Breath', 'catch your breath');
+        const recoupFeature = findRestFeature(features, 'Recoup', 'recoup');
+        const restFeature = findRestFeature(features, 'Take a Rest', 'take a rest');
+ 
+        const restData = {
+            breathFeature: breathFeature,
+            recoupFeature: recoupFeature,
+            restFeature: restFeature,
+            hasBreathFeature: !!breathFeature,
+            hasRecoupFeature: !!recoupFeature,
+            hasRestFeature: !!restFeature,
+        };
+
         // Attribute & Defense Pairs
         const attributes = system.attributes || {};
         const defenses = system.defenses || {};
@@ -178,7 +228,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             items: itemData,
             hotbar: hotbarData,
             isGM: game.user.isGM,
-            gmCharacters: gmCharacters
+            gmCharacters: gmCharacters,
+            restFeatures: restData
         };
 
         console.log("Mythcraft HUD | getData retrieved:", this.currentData);
@@ -308,13 +359,15 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         // Attribute/Skill Buttons
         html.find('.hud-attr-btn').on('click', this._onAttributeRoll.bind(this));
         // Skill buttons are in a popup, so delegate from the main element
-        html.on('click', '.hud-skill-btn', this._onSkillRoll.bind(this));
+        // Use a namespace (.skill) to prevent stacking listeners on re-renders.
+        html.off('click.skill').on('click.skill', '.hud-skill-btn', this._onSkillRoll.bind(this));
 
         // Hotbar Macro Buttons
         html.find('.hotbar-macro-btn').on('click', this._onMacroExecute.bind(this));
 
         // Expansion List Buttons (delegate from the expansion area)
         const expansionArea = html.find('#mythcraft-hud-expansion');
+        expansionArea.on('click', '.hud-rest-row', this._onRestClick.bind(this));
         expansionArea.on('click', '.weapon-btn', this._onWeaponClick.bind(this));
         expansionArea.on('click', '.mod-toggle-btn', this._onModifierClick.bind(this));
         expansionArea.on('click', '.spell-btn', this._onSpellClick.bind(this));
@@ -358,18 +411,23 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // --- UI INTEGRATION LOGIC ---
         const playersMount = html.find("#hud-players-mount")[0];
+        const players = this._rescuedPlayers || document.getElementById("players");
 
-        // If a mount point exists in our HUD...
-        if (playersMount) {
-            // Find the #players list, whether it's our rescued copy or the one in the body.
-            const players = this._rescuedPlayers || document.getElementById("players");
-            if (players) {
-                // Move it into the HUD.
+        if (players) {
+            if (playersMount) {
+                // Happy path: A mount point exists in our HUD, so integrate the players list.
                 playersMount.appendChild(players);
                 players.classList.add("integrated-players");
-                this._rescuedPlayers = null; // Clear the reference
+            } else {
+                // Unhappy path: The HUD rendered without a mount point.
+                // Restore the players list to the main document body to prevent it from being lost.
+                document.body.appendChild(players);
+                players.classList.remove("integrated-players");
             }
         }
+
+        // The render cycle is complete, so clear the rescued reference to prevent stale data.
+        this._rescuedPlayers = null;
 
         this.updatePosition();
         
@@ -478,7 +536,12 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             });
 
             const listHtml = await renderTemplate(templatePath, this.currentData);
-            expansionArea.html(listHtml);
+            // The rest menu is short and has tooltips that need to escape. Don't wrap it in a scroller.
+            if (type === 'rest') {
+                expansionArea.html(listHtml);
+            } else {
+                expansionArea.html(`<div class="hud-list-scroller">${listHtml}</div>`);
+            }
         } catch (err) {
             console.error(`Mythcraft HUD | Failed to render and inject template '${type}':`, err);
         }
@@ -556,5 +619,67 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         expansionArea.empty();
         expansionArea.removeAttr("style");
         this.currentTab = null;
+    }
+
+    async _onRestClick(event) {
+        event.preventDefault();
+        const actor = this.targetActor;
+        if (!actor) return;
+    
+        const restType = event.currentTarget.dataset.restType;
+        const restFeatures = this.currentData.restFeatures;
+        
+        let restName = '';
+        let featureItem = null;
+    
+        switch (restType) {
+            case 'breath':
+                restName = 'is Catching their Breath';
+                featureItem = restFeatures.breathFeature;
+                break;
+            case 'recoup':
+                restName = 'is Recouping';
+                featureItem = restFeatures.recoupFeature;
+                break;
+            case 'rest':
+                restName = 'is Taking a Rest';
+                featureItem = restFeatures.restFeature;
+                break;
+        }
+
+        if (!restName) return;
+
+        // Execute the rest logic and get a list of changes
+        const changes = await ActionHandler.executeRest(actor, restType);
+
+        let content = `<p><strong>${actor.name}</strong> ${restName}.</p>`;
+
+        if (changes.length > 0) {
+            content += '<ul style="margin: 0; padding-left: 20px; font-size: 0.9em;">';
+            changes.forEach(change => {
+                content += `<li>${change}</li>`;
+            });
+            content += '</ul>';
+        }
+
+        if (featureItem) {
+            // Enrich the description to make inline rolls clickable before sending to chat.
+            const enrichedDesc = await TextEditor.enrichHTML(featureItem.system.description.value, { async: true, rollData: actor.getRollData() });
+
+            // Create an embedded card for the feature.
+            content += `
+                <div class="clickable-card" style="margin-top: 5px;">
+                    <div class="card-header">${featureItem.name}</div>
+                    <div class="card-body" style="display: block;">
+                        ${enrichedDesc}
+                    </div>
+                </div>
+            `;
+        }
+
+        ChatMessage.create({
+            speaker: ChatMessage.getSpeaker({ actor }),
+            content: content
+        });
     }
 }

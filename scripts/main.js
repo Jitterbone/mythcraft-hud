@@ -385,6 +385,7 @@ Hooks.once('ready', () => {
         if (!hudInstance) return;
         if (controlled) {
             console.log(`Mythcraft HUD | Token controlled: ${token.actor.name}`);
+            hudInstance.closeExpansion();
             hudInstance.activeToken = token;
             hudInstance.actor = null; // Clear the fallback actor
             hudInstance.render({ force: true });
@@ -392,6 +393,7 @@ Hooks.once('ready', () => {
             const lastActor = token.actor;
             // A token was deselected. Check if any tokens are left.
             if (canvas.tokens.controlled.length === 0) {
+                hudInstance.closeExpansion();
                 if (game.user.character) {
                     // Player has a default character, revert to it
                     hudInstance.activeToken = null;

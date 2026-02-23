@@ -192,27 +192,20 @@
    SPELL CARD STYLING
    ============================================ */
 
+/*
+  Spell cards inherit the base .mythcraft-statblock dark theme.
+  We add a subtle "magical" blue border and glow to distinguish them.
+*/
 .mythcraft-statblock.spell-card {
-    background: #f0f4ff !important; /* Light blue background */
-    border-color: #2a1a5e !important; /* Deep purple border */
-    color: #111 !important;
-}
-
-.mythcraft-statblock.spell-card .card-header {
-    background: #2a1a5e !important; /* Deep purple header */
-    border-bottom: 2px solid #1a0f3e !important;
-    color: #fff !important;
-}
-
-.mythcraft-statblock.spell-card .card-desc {
-    color: #333 !important;
+    border-color: #a8d5e2 !important;
+    box-shadow: 0 0 8px rgba(168, 213, 226, 0.3), 0 2px 5px rgba(0,0,0,0.5);
 }
 
 .mythcraft-statblock.spell-card .card-desc.scrollable {
     max-height: 200px;
     overflow-y: auto;
     padding-right: 4px;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid #2a5a5f;
     margin-bottom: 8px;
 }
 
@@ -220,13 +213,14 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: rgba(42, 26, 94, 0.1);
+    background: rgba(58, 122, 127, 0.1);
     padding: 4px 8px;
-    border-bottom: 1px solid #ccc;
+    border-bottom: 1px solid #2a5a5f;
     font-size: 0.9em;
 }
 
-.sp-spent { color: #2a1a5e; }
+/* Use the same purple as the HUD's SP tracker for consistency */
+.sp-spent { color: #cc66ff; }
 .ap-spent { color: #e74c3c; }
 
 /* Spell Preview Badges */
@@ -245,8 +239,8 @@
 .spell-preview-badge.utility { background: #95a5a6; }
 
 /* Scrollbar for spell description */
-.card-desc.scrollable::-webkit-scrollbar { width: 4px; }
-.card-desc.scrollable::-webkit-scrollbar-thumb { background: #2a1a5e; border-radius: 2px; }
+.mythcraft-statblock.spell-card .card-desc.scrollable::-webkit-scrollbar { width: 4px; }
+.mythcraft-statblock.spell-card .card-desc.scrollable::-webkit-scrollbar-thumb { background: #3a7a7f; border-radius: 2px; }
 
 /* ============================================
    FEATURE CARD BUTTONS
@@ -534,8 +528,8 @@
     border: 1px solid #3a7a7f;
     border-radius: 6px;
     padding: 6px;
-    max-height: 65vh;
-    overflow-y: auto;
+    max-height: none; /* Let the inner container handle height */
+    overflow-y: visible; /* Allow tooltips to escape */
     display: none; /* Hidden by default */
     margin-bottom: 5px;
     pointer-events: auto;
@@ -548,21 +542,30 @@
     display: block;
 }
 
+/* Hide scrollbar on the main container as it's now on the child */
 #mythcraft-hud-expansion::-webkit-scrollbar {
-    width: 6px;
+    display: none;
 }
 
-#mythcraft-hud-expansion::-webkit-scrollbar-track {
+/* New inner scroller for lists */
+.hud-list-scroller {
+    max-height: 65vh;
+    overflow-y: auto;
+    padding-right: 4px; /* Space for scrollbar */
+}
+
+.hud-list-scroller::-webkit-scrollbar {
+    width: 6px;
+}
+.hud-list-scroller::-webkit-scrollbar-track {
     background: rgba(0, 0, 0, 0.3);
     border-radius: 3px;
 }
-
-#mythcraft-hud-expansion::-webkit-scrollbar-thumb {
+.hud-list-scroller::-webkit-scrollbar-thumb {
     background: #3a7a7f;
     border-radius: 3px;
 }
-
-#mythcraft-hud-expansion::-webkit-scrollbar-thumb:hover {
+.hud-list-scroller::-webkit-scrollbar-thumb:hover {
     background: #5a9a9f;
 }
 
@@ -1670,3 +1673,111 @@ body.gm .mythcraft-hit-box[data-visibility="gm"] {
     margin-bottom: 4px;
     text-transform: uppercase;
 }
+
+/* ============================================
+   REST UI
+   ============================================ */
+
+.hud-rest-row {
+    position: relative; /* For tooltip positioning */
+}
+
+.hud-rest-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(58, 122, 127, 0.3);
+}
+
+.hud-rest-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.9em;
+}
+
+.hud-rest-row:hover, .hud-rest-row.rest-feature-active {
+    background: rgba(58, 122, 127, 0.3);
+    color: #d3c4a3;
+    text-shadow: 0 0 5px rgba(211, 196, 163, 0.5);
+}
+
+.hud-rest-row .rest-name {
+    flex: 1;
+}
+
+.hud-rest-row .rest-duration {
+    font-size: 0.9em;
+    color: #7a9fa4;
+    font-style: italic;
+    white-space: nowrap;
+}
+
+.hud-rest-row:hover .rest-duration, .hud-rest-row.rest-feature-active .rest-duration {
+    color: #d3c4a3;
+}
+
+.hud-feature-tooltip {
+    position: absolute;
+    /* Position above the button */
+    bottom: 100%;
+    left: 0;
+    width: max-content; /* Scale to content */
+    max-width: 400px;   /* But prevent excessive width */
+    background: rgba(20, 20, 20, 0.98);
+    border: 1px solid #d3c4a3;
+    border-radius: 4px;
+    padding: 0;
+    margin-bottom: 8px;
+    z-index: 200;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+    pointer-events: none; /* Don't block hover on the row itself */
+    
+    /* Hover Delay Logic */
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+}
+
+.hud-rest-row:hover .hud-feature-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.2s ease 0.3s, visibility 0s linear 0.3s; /* 0.3s delay before showing */
+}
+
+.hud-feature-tooltip .tooltip-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(211, 196, 163, 0.1);
+    padding: 6px 8px;
+    border-bottom: 1px solid #d3c4a3;
+    font-weight: bold;
+    color: #FEEBB3;
+}
+
+.hud-feature-tooltip .tooltip-header img {
+    width: 24px;
+    height: 24px;
+    border: 1px solid #d3c4a3;
+    border-radius: 3px;
+}
+
+.hud-feature-tooltip .tooltip-body {
+    padding: 8px;
+    font-size: 0.9em;
+    color: #ddd;
+    line-height: 1.4;
+    max-height: 250px;
+    overflow-y: auto;
+}
+
+/* Tooltip scrollbar */
+.hud-feature-tooltip .tooltip-body::-webkit-scrollbar { width: 4px; }
+.hud-feature-tooltip .tooltip-body::-webkit-scrollbar-thumb { background: #d3c4a3; border-radius: 2px; }
