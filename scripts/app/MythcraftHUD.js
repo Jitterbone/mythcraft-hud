@@ -1,9 +1,9 @@
 import { DataScraper } from '../data/DataScraper.js';
 import { ActionHandler } from '../actions/ActionHandler.js';
 
-const { HandlebarsApplication } = foundry.applications;
+const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
-export class MythcraftHUD extends HandlebarsApplication {
+export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
     constructor() {
         super();
         this.activeToken = null;
@@ -84,8 +84,7 @@ export class MythcraftHUD extends HandlebarsApplication {
                     players.remove(); // Detaches from DOM, preserving the element in memory.
                 }
                 
-                await super.render(true, options);
-                this._postRender(this.context, options);
+                await super.render({ force: true });
             } catch (e) {
                 console.error("Mythcraft HUD | An error occurred during render, restoring players list.", e);
                 // If render fails, we must restore the players list to prevent it from disappearing.
@@ -362,7 +361,7 @@ export class MythcraftHUD extends HandlebarsApplication {
         });
     }
 
-    _postRender(context, options) {
+    _onRender(context, options) {
         document.body.classList.add("myth-hud-active");
         const html = $(this.element);
 

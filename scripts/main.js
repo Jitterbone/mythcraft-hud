@@ -502,7 +502,6 @@ function updateTokenAP(token) {
 
     if (!token.controlled) return;
     if (!token.inCombat) return;
-    if (token.actor?.type === 'npc') return;
 
     const combat = game.combat;
     if (!combat) return;
