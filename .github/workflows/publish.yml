@@ -14,7 +14,7 @@ jobs:
 
       - name: Update Manifest
         run: |
-          sed -i "s#.*\"download\":.*#  \"download\": \"https:\/\/github.com\/${{ github.repository }}\/releases\/download\/${{ github.ref_name }}\/module.zip\",#" module.json
+          sed -i "s#.*\"download\":.*#  \"download\": \"https:\/\/github.com\/${{ github.repository }}\/releases\/download\/${{ github.ref_name }}\/module.zip\"#" module.json
           cat module.json
 
       - name: Zip Module
