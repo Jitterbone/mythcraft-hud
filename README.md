@@ -1,4 +1,4 @@
-# Mythcraft HUD Module 🐲
+# Mythcraft HUD Module (0.9.0-beta) 🐲
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jitterbone)
 
