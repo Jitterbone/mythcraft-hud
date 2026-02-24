@@ -200,7 +200,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // Prepare Death Data
         const death = system.death || { value: 0, max: 3 }; // Default max to 3 if not found
-        const isDead = death.value >= death.max;
+        const isDead = (death.max > 0) && (death.value >= death.max);
         const isDying = system.hp.value === 0 && !isDead;
 
         const skullTally = [];
@@ -353,6 +353,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             const actorId = event.currentTarget.dataset.actorId;
             const actor = game.actors.get(actorId);
             if (actor) {
+                this.closeExpansion();
                 this.activeToken = null;
                 this.actor = actor;
                 this.render({ force: true });
@@ -546,6 +547,12 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         const type = btn.dataset.type;
         const expansionArea = $(this.element).find('#mythcraft-hud-expansion');
 
+        // If this menu is already open, close it and do nothing else.
+        if (this.currentTab === type) {
+            this.closeExpansion();
+            return;
+        }
+
         // Determine the correct template path
         let templatePath;
         if (type === 'actions' && this.targetActor?.type === 'npc') {
@@ -584,8 +591,11 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             } else {
                 expansionArea.html(`<div class="hud-list-scroller">${listHtml}</div>`);
             }
+            // After successfully opening, set the current tab.
+            this.currentTab = type;
         } catch (err) {
             console.error(`Mythcraft HUD | Failed to render and inject template '${type}':`, err);
+            this.closeExpansion(); // Close on error to be safe.
         }
     }
 
