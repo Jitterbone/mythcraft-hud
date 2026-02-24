@@ -24,9 +24,14 @@
             </button>
 
             <!-- Zone 3: Utility (Info Button) -->
-            <button class="info-toggle-btn" data-target="desc-{{this._id}}">
-                <i class="fas fa-info"></i>
-            </button>
+            <div class="hud-control-stack">
+                <button class="info-toggle-btn" data-target="desc-{{this._id}}">
+                    <i class="fas fa-info"></i>
+                </button>
+                <button class="mod-toggle-btn" data-item-id="{{this._id}}">
+                    <i class="fas fa-plus"></i>
+                </button>
+            </div>
         </div>
         <div id="desc-{{this._id}}" class="hud-item-description" style="display: none;">
             {{{this.system.description.value}}}

@@ -64,9 +64,24 @@ Hooks.once('init', () => {
 
    // Template override for chat messages
     // Helper function to determine the label and flavor for a roll.
-    const _getRollContext = (flavor, formula, rollOptions = {}) => {
+    const _getRollContext = (flavor, formula, rollOptions = {}, roll = {}) => {
         let resultLabel = "SYSTEM ROLL";
         const flavorLower = flavor.toLowerCase();
+
+        // New check for specific roll class from Mythcraft system
+        if (roll.class === "AttributeRoll") {
+            resultLabel = "ATTRIBUTE CHECK";
+            const attrKey = roll.options?.attribute?.toLowerCase();
+            if (attrKey) {
+                const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck" };
+                const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
+                // Use the flavor from the roll if it's more specific than a generic "Check"
+                if (!flavor || flavor.toLowerCase() === "roll" || flavor.toLowerCase() === "system roll" || flavor.toLowerCase().endsWith(" check")) {
+                    flavor = `${fullName} Check`;
+                }
+            }
+            return { resultLabel, flavor };
+        }
 
         // Attribute list for keyword detection
         const attributes = ["strength", "str", "agility", "agi", "dexterity", "dex", "endurance", "end", "constitution", "con", "stamina", "intelligence", "int", "awareness", "awa", "perception", "per", "wisdom", "wis", "charisma", "cha", "luck", "lck"];
@@ -161,7 +176,7 @@ Hooks.once('init', () => {
                 // Fallback to roll options flavor if message flavor is empty
                 const initialFlavor = d.flavor || roll.options?.flavor || "";
 
-                let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options);
+                let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
 
                 let resultClass = "";
                 let buttonHtml = ""; // Action buttons container
@@ -229,6 +244,39 @@ Hooks.once('init', () => {
         
         return originalCreate.call(this, data, options);
     };
+
+    // Universal Fallback: Intercept sheet rolls that slip past other patches.
+    Hooks.on('preCreateChatMessage', (messageDoc, messageData, options, userId) => {
+        // Check if it's a roll we need to format, and that it's not one we already formatted.
+        if (messageData.rolls && messageData.rolls.length > 0 && !messageData.content?.includes("mythcraft-statblock")) {
+            let rollData = messageData.rolls[0];
+            if (typeof rollData === 'string') {
+                try { rollData = JSON.parse(rollData); } catch (e) { return true; } // Let original message pass if JSON is invalid
+            }
+
+            // Check for the specific roll class from the Mythcraft system.
+            if (rollData.class === "AttributeRoll") {
+                const actor = ChatMessage.getSpeakerActor(messageData.speaker);
+                if (!actor) return true;
+
+                // Re-constitute the Roll instance from the JSON data.
+                const roll = Roll.fromJSON(JSON.stringify(rollData));
+                const attrKey = roll.options?.attribute;
+                const attrName = attrKey ? attrKey.charAt(0).toUpperCase() + attrKey.slice(1) : "Attribute";
+
+                // Use the existing handler to create our professionally styled card.
+                ActionHandler.createProfessionalChatCard({
+                    actor: actor,
+                    title: `${attrName} Check`,
+                    roll: roll,
+                    label: "ATTRIBUTE CHECK"
+                });
+                
+                return false; // This is crucial: it stops the original white chat card from being created.
+            }
+        }
+        return true; // Let all other messages pass through normally.
+    });
 });
 
 Hooks.once('ready', () => {
@@ -310,8 +358,8 @@ Hooks.once('ready', () => {
     // Apply patches to likely system methods
     patchSystemRoll('rollSkill', 'SKILL CHECK');
     patchSystemRoll('rollSave', 'SAVE CHECK');
-    patchSystemRoll('rollAttribute', 'ATTRIBUTE CHECK');
-    patchSystemRoll('rollAttributeCheck', 'ATTRIBUTE CHECK');
+    // patchSystemRoll('rollAttribute', 'ATTRIBUTE CHECK');
+    // patchSystemRoll('rollAttributeCheck', 'ATTRIBUTE CHECK');
 
     // Prompt 3: Unified Interaction - Handle click on parent .hud-action-button
     $(document).on('click', '.hud-action-button', function(e) {

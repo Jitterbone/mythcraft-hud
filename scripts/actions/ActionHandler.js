@@ -93,6 +93,10 @@ export class ActionHandler {
         const damageFormula = item.system.damage?.formula || "0";
 
         const content = `
+            <style>
+                .myth-hud-dialog .form-group label { color: #7a9fa4 !important; }
+                .myth-hud-dialog input, .myth-hud-dialog select { color: #fff !important; }
+            </style>
             <div class="tac-card">
                 <div class="tac-zone-1"><img src="${item.img}"></div>
                 <div class="tac-zone-2">

@@ -305,7 +305,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    width: 200px; /* Reduced to align tighter with players box */
+    width: auto; /* Reduced to align tighter with players box */
 }
 
 /* --- RIGHT COLUMN: Attributes/Menu + Hotbar --- */
@@ -313,7 +313,7 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
-    height: 220px; /* Fixed height to match Actor Card */
+    height: auto; /* Fixed height to match Actor Card */
     justify-content: flex-end;
 }
 
@@ -593,7 +593,7 @@
     pointer-events: auto;
     width: max-content;
     min-width: 350px;
-    max-width: 550px;
+    max-width: fit-content;
 }
 
 #mythcraft-hud-expansion:not(:empty) {
@@ -1026,7 +1026,7 @@
 .mod-toggle-btn::before {
     font-family: "Font Awesome 5 Free";
     font-weight: 900;
-    content: "\f067"; /* fa-plus */
+    content: ""; /* fa-plus */
     font-size: 1em;
     line-height: 1;
 }
@@ -1215,44 +1215,44 @@
    CUSTOM DIALOG STYLES
    ============================================ */
 
-.myth-hud-dialog .window-content {
+body.vtt .myth-hud-dialog .window-content {
     background: #1a1a1a;
     color: #FEEBB3;
     border: 1px solid #3a7a7f;
     padding: 10px;
 }
 
-.myth-hud-dialog .window-header {
+body.vtt .myth-hud-dialog .window-header {
     background: #0f2a2b;
     color: #FEEBB3;
     border-bottom: 1px solid #3a7a7f;
 }
 
-.myth-hud-dialog .form-group label {
+body.vtt .myth-hud-dialog .form-group label {
     color: #7a9fa4;
     font-weight: bold;
 }
 
-.myth-hud-dialog input[type="text"],
-.myth-hud-dialog input[type="number"],
-.myth-hud-dialog select {
+body.vtt .myth-hud-dialog input[type="text"],
+body.vtt .myth-hud-dialog input[type="number"],
+body.vtt .myth-hud-dialog select {
     background: rgba(0, 0, 0, 0.3);
     border: 1px solid #3a7a7f;
     color: #fff;
     border-radius: 3px;
 }
 
-.myth-hud-dialog option,
-.myth-hud-dialog optgroup {
+body.vtt .myth-hud-dialog option,
+body.vtt .myth-hud-dialog optgroup {
     background: #1a1a1a;
     color: #fff;
 }
 
-.myth-hud-dialog input:focus {
+body.vtt .myth-hud-dialog input:focus {
     box-shadow: 0 0 5px #3a7a7f;
 }
 
-.myth-hud-dialog .dialog-buttons button {
+body.vtt .myth-hud-dialog .dialog-buttons button {
     background: rgba(58, 122, 127, 0.3);
     border: 1px solid #3a7a7f;
     color: #FEEBB3;
@@ -1260,7 +1260,7 @@
     font-weight: bold;
 }
 
-.myth-hud-dialog .dialog-buttons button:hover {
+body.vtt .myth-hud-dialog .dialog-buttons button:hover {
     background: #3a7a7f;
     color: #fff;
     box-shadow: 0 0 8px rgba(58, 122, 127, 0.6);
@@ -1787,7 +1787,7 @@ body.gm .mythcraft-hit-box[data-visibility="gm"] {
     bottom: 100%;
     left: 0;
     width: max-content; /* Scale to content */
-    max-width: 400px;   /* But prevent excessive width */
+    max-width: fit-content;   /* But prevent excessive width */
     background: rgba(20, 20, 20, 0.98);
     border: 1px solid #d3c4a3;
     border-radius: 4px;

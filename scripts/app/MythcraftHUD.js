@@ -10,6 +10,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         this.actor = null; // Fallback actor (for players)
         this.currentTab = null; // Remembers what list is currently open
         this._rescuedPlayers = null; // To hold the detached players list during re-render
+        this._isRendering = false; // To prevent race conditions
+        this._renderPending = false;
     }
 
     static DEFAULT_OPTIONS = {
@@ -56,29 +58,47 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         }
     };
 
-    async render(options) {
-        // Rescue the players element by detaching it, preventing a visual jump during re-render.
-        const players = document.querySelector("#players.integrated-players");
-        if (players) {
-            this._rescuedPlayers = players;
-            players.remove(); // Detaches from DOM, preserving the element in memory.
-        }
-        
-        try {
-            return await super.render(options);
-        } catch (e) {
-            console.error("Mythcraft HUD | An error occurred during render, restoring players list.", e);
-            // If render fails, we must restore the players list to prevent it from disappearing.
-            if (this._rescuedPlayers) {
-                document.body.appendChild(this._rescuedPlayers);
-                this._rescuedPlayers.classList.remove("integrated-players");
-                this._rescuedPlayers = null;
-            }
-            // Re-throw the error so it's still visible in the console.
-            throw e;
-        }
-    }
+    static templatePaths = {
+        actions: "modules/mythcraft-hud/templates/list-actions.hbs",
+        "npc-actions": "modules/mythcraft-hud/templates/list-npc-actions.hbs",
+        spells: "modules/mythcraft-hud/templates/list-spells.hbs",
+        features: "modules/mythcraft-hud/templates/list-features.hbs",
+        rest: "modules/mythcraft-hud/templates/list-rest.hbs",
+        saves: "modules/mythcraft-hud/templates/list-saves.hbs",
+        skills: "modules/mythcraft-hud/templates/list-skills.hbs",
+        weapons: "modules/mythcraft-hud/templates/list-weapons.hbs"
+    };
 
+    async render(options) {
+        this._renderPending = true;
+        if (this._isRendering) return;
+
+        this._isRendering = true;
+        while (this._renderPending) {
+            this._renderPending = false;
+            try {
+                // The actual render logic, moved from the original method
+                const players = document.querySelector("#players.integrated-players");
+                if (players) {
+                    this._rescuedPlayers = players;
+                    players.remove(); // Detaches from DOM, preserving the element in memory.
+                }
+                
+                await super.render({ force: true });
+            } catch (e) {
+                console.error("Mythcraft HUD | An error occurred during render, restoring players list.", e);
+                // If render fails, we must restore the players list to prevent it from disappearing.
+                if (this._rescuedPlayers) {
+                    document.body.appendChild(this._rescuedPlayers);
+                    this._rescuedPlayers.classList.remove("integrated-players");
+                    this._rescuedPlayers = null;
+                }
+                // Re-throw the error so it's still visible in the console.
+                throw e;
+            }
+        }
+        this._isRendering = false;
+    }
     /**
      * Groups actor skills by their primary attribute.
      * @param {object} skills - The actor's system.skills object.
@@ -255,7 +275,6 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             death: deathData
         };
 
-        console.log("Mythcraft HUD | getData retrieved:", this.currentData);
         return this.currentData;
     }
 
@@ -282,10 +301,10 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
                     
                     // Create injection HTML
                     const btnHtml = `
-                    <span class="injected-group">
+                    <div class="injected-group">
                         <button class="injected-btn feature-btn" data-item-id="${feat._id}">${feat.name}</button>
                         <button class="injected-info info-toggle-btn" data-target="desc-${feat._id}"><i class="fas fa-info"></i></button>
-                    </span>`;
+                    </div>`;
                     
                     desc = desc.replace(regex, btnHtml);
                     
@@ -360,7 +379,6 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
                         </div>
                     </div>
                 `;
-                // Inject before the hotbar or at the start of the wrapper.
                 const hotbar = wrapper.find('.mythcraft-hotbar');
                 if (hotbar.length) {
                     hotbar.before(minimalLayout);
@@ -471,8 +489,6 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
     }
 
     async close(options) {
-        document.body.classList.remove("myth-hud-active");
-        
         if (this._resizeObserver) {
             this._resizeObserver.disconnect();
             this._resizeObserver = null;
@@ -530,18 +546,17 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         const type = btn.dataset.type;
         const expansionArea = $(this.element).find('#mythcraft-hud-expansion');
 
-        console.log(`Mythcraft HUD | Button clicked: ${type}`);
-
-        if (this.currentTab === type) {
-            this.closeExpansion();
-            return;
+        // Determine the correct template path
+        let templatePath;
+        if (type === 'actions' && this.targetActor?.type === 'npc') {
+            templatePath = MythcraftHUD.templatePaths['npc-actions'];
+        } else {
+            templatePath = MythcraftHUD.templatePaths[type];
         }
 
-        this.currentTab = type;
-        let templatePath = `modules/mythcraft-hud/templates/list-${type}.hbs`;
-
-        if (type === 'actions') {
-            templatePath = this.currentData.isNPC ? `modules/mythcraft-hud/templates/list-npc-actions.hbs` : `modules/mythcraft-hud/templates/list-actions.hbs`;
+        if (!templatePath) {
+            console.error(`Mythcraft HUD | No template path found for type: ${type}`);
+            return;
         }
 
         console.log(`Mythcraft HUD | Opening ${type} menu with template: ${templatePath}`);
