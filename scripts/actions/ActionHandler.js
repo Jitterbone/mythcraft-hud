@@ -496,6 +496,9 @@ export class ActionHandler {
                     updates['system.hp.value'] = 1;
                     changes.push("Regained 1 HP from 0.");
                 }
+                if (deathPoints > 0) {
+                    changes.push(`${actor.name} is no longer dying.`);
+                }
                 break;
 
             case 'recoup':
@@ -514,7 +517,7 @@ export class ActionHandler {
                 }
                 if (deathPoints > 0) {
                     updates['system.death.value'] = Math.max(0, deathPoints - 1);
-                    changes.push("Removed 1 Death Point.");
+                    changes.push(`${actor.name} loses one death point.`);
                 }
                 break;
 
@@ -530,7 +533,7 @@ export class ActionHandler {
                     changes.push("Removed the Fatigued condition.");
                 } else if (deathPoints > 0) {
                     updates['system.death.value'] = 0;
-                    changes.push("Removed all Death Points.");
+                    changes.push(`${actor.name} has lost all death points.`);
                 }
                 break;
         }

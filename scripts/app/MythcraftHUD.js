@@ -178,6 +178,28 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             hasRestFeature: !!restFeature,
         };
 
+        // Prepare Death Data
+        const death = system.death || { value: 0, max: 3 }; // Default max to 3 if not found
+        const isDead = death.value >= death.max;
+        const isDying = system.hp.value === 0 && !isDead;
+
+        const skullTally = [];
+        if (isDying) {
+            for (let i = 0; i < death.max; i++) {
+                skullTally.push({ isActive: i < death.value });
+            }
+        }
+
+        const deathPercent = (death.max > 0) ? Math.min(100, (death.value / death.max) * 100) : 0;
+        const deathData = {
+            value: death.value,
+            max: death.max,
+            percent: deathPercent,
+            isDead: isDead,
+            isDying: isDying,
+            skullTally: skullTally
+        };
+
         // Attribute & Defense Pairs
         const attributes = system.attributes || {};
         const defenses = system.defenses || {};
@@ -229,7 +251,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             hotbar: hotbarData,
             isGM: game.user.isGM,
             gmCharacters: gmCharacters,
-            restFeatures: restData
+            restFeatures: restData,
+            death: deathData
         };
 
         console.log("Mythcraft HUD | getData retrieved:", this.currentData);
@@ -356,6 +379,9 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         // Main Menu Buttons
         html.find('.hud-menu-btn').on('click', this._onMenuButtonClick.bind(this));
 
+        // Death Skull Tally
+        html.find('.death-skull-icon').on('click', this._onDeathSkullClick.bind(this));
+
         // Attribute/Skill Buttons
         html.find('.hud-attr-btn').on('click', this._onAttributeRoll.bind(this));
         // Skill buttons are in a popup, so delegate from the main element
@@ -409,24 +435,25 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             updateResourceColor(label, valSpan);
         });
 
-        // --- UI INTEGRATION LOGIC ---
+        // --- UI INTEGRATION LOGIC (Fail-safe) ---
         const playersMount = html.find("#hud-players-mount")[0];
         const players = this._rescuedPlayers || document.getElementById("players");
 
         if (players) {
             if (playersMount) {
-                // Happy path: A mount point exists in our HUD, so integrate the players list.
+                // If the mount exists, the players list belongs inside it.
                 playersMount.appendChild(players);
                 players.classList.add("integrated-players");
             } else {
-                // Unhappy path: The HUD rendered without a mount point.
-                // Restore the players list to the main document body to prevent it from being lost.
-                document.body.appendChild(players);
-                players.classList.remove("integrated-players");
+                // If no mount exists, the players list must be in the body.
+                if (players.classList.contains("integrated-players")) {
+                    document.body.appendChild(players);
+                    players.classList.remove("integrated-players");
+                }
             }
         }
-
-        // The render cycle is complete, so clear the rescued reference to prevent stale data.
+        
+        // After all attempts to re-attach, clear the reference.
         this._rescuedPlayers = null;
 
         this.updatePosition();
@@ -681,5 +708,25 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             speaker: ChatMessage.getSpeaker({ actor }),
             content: content
         });
+    }
+
+    async _onDeathSkullClick(event) {
+        event.preventDefault();
+        const actor = this.targetActor;
+        if (!actor) return;
+    
+        const clickedIndex = parseInt(event.currentTarget.dataset.index);
+        const currentValue = actor.system.death?.value || 0;
+        const newIndexValue = clickedIndex + 1;
+    
+        let newValue;
+        // If clicking the currently active last skull, "untick" it.
+        if (newIndexValue === currentValue) {
+            newValue = currentValue - 1;
+        } else {
+            newValue = newIndexValue;
+        }
+    
+        await actor.update({ 'system.death.value': newValue });
     }
 }

@@ -7,8 +7,16 @@
             <!-- Left Column: Players Mount + Actor Card -->
             <div class="hud-left-column">
                 <div id="hud-players-mount"></div>
-                <div class="hud-actor-card">
+                <div class="hud-actor-card {{#if death.isDead}}is-dead{{/if}} {{#if death.isDying}}is-dying{{/if}}">
                     <img src="{{actorImg}}" class="hud-card-bg" alt="{{actorName}}" onerror="this.src='icons/svg/mystery-man.svg'">
+                    {{#if death.isDying}}
+                    <div class="hud-death-skulls">
+                        {{#each death.skullTally as |skull|}}
+                            <i class="fas fa-skull death-skull-icon {{#if skull.isActive}}active{{/if}}" data-index="{{@index}}"></i>
+                        {{/each}}
+                    </div>
+                    {{/if}}
+                    <div class="hud-death-overlay" style="height: {{death.percent}}%;"></div>
                     <div class="hud-card-overlay">
                         <div class="stat-row hp">
                             <span class="stat-label">HP</span>
