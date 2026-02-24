@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2-beta] - 2024-05-27
+
+### Fixed
+- **Foundry v13 Compatibility**: Fixed a critical error (`HandlebarsApplicationMixin is not a function`) that prevented the HUD from loading on Foundry VTT v13. The module has been updated to use the modern `HandlebarsApplication` class.
+
 ## [0.9.1-beta] - 2024-05-26
 
 ### Fixed
