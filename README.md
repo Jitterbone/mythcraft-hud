@@ -1,6 +1,6 @@
-[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jitterbone)
-
 # Mythcraft HUD Module 🐲
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jitterbone)
 
 A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
 
@@ -159,8 +159,8 @@ static async executeCustomAction(itemId, actor) {
 ## Compatibility
 
 - **System**: Mythcraft v0.6.4+
-- **Foundry VTT**: v13+
-- **Browser**: Modern browsers with ES6 support
+- **Foundry VTT**: v11+
+- **Dependencies**: Requires the Dice So Nice! module for 3D dice.
 
 ## Known Issues & Limitations
 
@@ -170,50 +170,16 @@ static async executeCustomAction(itemId, actor) {
 
 ## Future Enhancements
 
-- [ ] Drag-and-drop to hotbar
-- [ ] Custom resource configuration per actor
 - [ ] Combat round indicator
+- [ ] Automated Mythcraft condition handling
 - [ ] Status effect display
-- [ ] Settings panel for customization
+- [ ] Building out settings panel for advanced customization
 - [ ] Condition/state tracking
-- [ ] Quick-access macros
-- [ ] NPC conversation menu integration
 
 ## Support & Contributing
 
-For bugs, feature requests, or questions:
-1. Check the module structure documentation above
-2. Review the code comments in each file
-3. Test with a clean actor and fresh world save
+If you encounter a bug or have a feature request, please open an issue on GitHub.
 
-## Publishing New Versions (Automated)
+If you enjoy using this module and would like to show your support, you can:
 
-This repository is configured with a GitHub Actions workflow to automate the release process.
-
-### The Release Workflow
-1.  **Update Version**: In `module.json`, increment the `version` number. For pre-releases, use a suffix like `-beta`.
-    ```json
-    "version": "0.8.3-beta"
-    ```
-2.  **Commit and Push**: Commit the `module.json` change to your `main` branch.
-    ```sh
-    git commit -m "Prepare release v0.8.3-beta"
-    git push origin main
-    ```
-3.  **Create and Push a Git Tag**: Create a tag that matches the version in `module.json` (prefixed with `v`) and push it to GitHub. This triggers the automation.
-    ```sh
-    git tag v0.8.3-beta
-    git push origin v0.8.3-beta
-    ```
-
-The GitHub Action will then automatically build the release, and your manifest URL will work correctly.
-
-#### Troubleshooting a Failed Release
-If the GitHub Action fails with an `already_exists` error, you must delete the failed tag from GitHub before retrying.
-```sh
-git tag -d v0.8.3-beta && git push --delete origin v0.8.3-beta
-```
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+<a href="https://ko-fi.com/jitterbone" target="_blank">[!ko-fi](https://ko-fi.com/jitterbone)</a>

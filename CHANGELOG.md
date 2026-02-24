@@ -16,15 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Code Refactor**: Simplified sheet roll interception logic by removing a redundant `preCreateChatMessage` hook and streamlining the `patchSystemRoll` function. This improves stability and maintainability.
 - **Documentation**: Completely revamped the `README.md` with a comprehensive feature list, clearer instructions, and an improved visual layout to better showcase the module's capabilities.
 
-## [0.9.0-beta] - 2024-05-25
-
-### Fixed
-- **Duplicate Dice Rolls**: Resolved an issue where rolling attributes, skills, or saves directly from the character sheet would cause two sets of 3D dice to appear. The roll is now correctly processed only once by unifying all sheet rolls through a single, robust chat message interception pipeline.
-
-### Changed
-- **Code Refactor**: Simplified sheet roll interception logic by removing a redundant `preCreateChatMessage` hook and streamlining the `patchSystemRoll` function. This improves stability and maintainability.
-- **Documentation**: Completely revamped the `README.md` with a comprehensive feature list, clearer instructions, and an improved visual layout to better showcase the module's capabilities.
-
 ## [0.8.3-beta] - 2024-05-24
 
 ### Fixed

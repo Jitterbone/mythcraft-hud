@@ -93,10 +93,6 @@ export class ActionHandler {
         const damageFormula = item.system.damage?.formula || "0";
 
         const content = `
-            <style>
-                .myth-hud-dialog .form-group label { color: #7a9fa4 !important; }
-                .myth-hud-dialog input, .myth-hud-dialog select { color: #fff !important; }
-            </style>
             <div class="tac-card">
                 <div class="tac-zone-1"><img src="${item.img}"></div>
                 <div class="tac-zone-2">
@@ -769,65 +765,4 @@ export class ActionHandler {
         await ui.chat.processMessage(content);
     }
 
-    // ===== SHEET INTERCEPTION =====
-
-    static registerHooks() {
-        // Hook into preCreateChatMessage to intercept sheet rolls
-        Hooks.on('preCreateChatMessage', (doc, data, options, userId) => {
-            // 1. Avoid infinite loops from our own messages
-            if (data.content && (data.content.includes("myth-hud-chat-card") || data.content.includes("mythcraft-statblock"))) return;
-
-            // 2. Attempt to identify Item rolls from the system
-            // We check for flags that link to an Item and Actor
-            const flags = data.flags?.mythcraft || {};
-            const itemId = flags.itemId || flags.item?._id;
-            
-            const speaker = data.speaker || {};
-            const actor = ChatMessage.getSpeakerActor(speaker);
-
-            // If we found an item ID, try to find the actor and item
-            if (itemId && actor) {
-                    const item = actor.items.get(itemId);
-                    if (item) {
-                        // Redirect to HUD logic
-                        this.handleSheetRoll(item, actor);
-                        return false; // Cancel the original chat message
-                    }
-            }
-
-            // 3. Attempt to identify Skill/Save/Attribute rolls from sheet
-            if (actor) {
-                if (flags.skillId) {
-                    this.rollSkill(flags.skillId, actor);
-                    return false;
-                }
-                if (flags.saveId) {
-                    this.rollSave(flags.saveId, actor);
-                    return false;
-                }
-                if (flags.attrId || flags.attribute) {
-                    this.rollAttribute(flags.attrId || flags.attribute, actor);
-                    return false;
-                }
-            }
-        });
-
-        // Also hook generic item roll if supported by the system
-        Hooks.on('mythcraft.preRollItem', (item) => {
-            if (item.actor) {
-                this.handleSheetRoll(item, item.actor);
-                return false;
-            }
-        });
-    }
-
-    static async handleSheetRoll(item, actor) {
-        if (!item || !actor) return;
-        console.log(`Mythcraft HUD | Intercepting sheet roll for ${item.name}`);
-        
-        const type = item.type;
-        if (type === "weapon") return this.configureAttack(item.id, actor);
-        if (type === "spell") return this.executeSpellCast(item.id, actor);
-        return this.useFeature(item.id, actor);
-    }
 }

@@ -262,9 +262,6 @@ Hooks.once('ready', () => {
     const scaleMap = { "small": 0.8, "medium": 1.0, "large": 1.2, "xlarge": 1.4 };
     document.documentElement.style.setProperty('--myth-hud-scale', scaleMap[currentScale] || 1.0);
     
-    // Register ActionHandler hooks for sheet roll interception
-    ActionHandler.registerHooks();
-    
     // Persistent Open Logic
     if (game.user.character) {
         // Player with assigned character
