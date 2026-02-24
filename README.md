@@ -1,3 +1,5 @@
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jitterbone)
+
 # Mythcraft HUD Module 🐲
 
 A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
