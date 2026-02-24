@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.1-beta] - 2024-05-26
+
+### Fixed
+- **Module Installation**: Corrected the `module.json` file to include a valid `download` URL, enabling seamless installation and updates from within Foundry VTT.
+
 ## [0.9.0-beta] - 2024-05-25
 
 ### Fixed
