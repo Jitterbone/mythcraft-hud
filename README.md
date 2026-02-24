@@ -1,24 +1,33 @@
-# Mythcraft HUD Module
+# Mythcraft HUD Module 🐲
 
-A modular, persistent contextual HUD for the Mythcraft system in Foundry VTT. Provides quick access to weapons, spells, features, skills, and saves directly from the hotbar.
+A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
 
-## Features
+## ✨ Features
 
-- **Persistent HUD** - Stays attached to the hotbar above the main UI
-- **Resource Tracking** - Display and track HP, AP (Action Points), and SP (Spell Points)
-- **Quick Actions** - One-click access to:
-  - Weapons (with AP cost calculation)
-  - Spells (with SP cost deduction)
-  - Features/Talents (PC and NPC specific)
-  - Skills (with bonus rollable)
-  - Saves (with bonus rollable)
-- **Actor Visuals** - Shows selected token's portrait
-- **PC vs NPC Support** - Different layouts for player characters and NPCs
-- **Resource Auto-Deduction** - Automatically deducts SP when spells are cast
-- **Expandable Lists** - Click menu buttons to expand/collapse item lists
-- **Dice Tray** - A persistent dice rolling interface at the bottom of the chat log for quick rolls.
+-   **🛡️ Persistent & Contextual HUD**: A clean, modern interface that stays docked to your screen and automatically updates to the currently selected token.
+-   **📊 Real-Time Resource Tracking**: Always know your `HP`, `AP` (Action Points), and `SP` (Spell Points) at a glance.
+-   **⚡ Quick Action Menus**: Expandable menus give you one-click access to:
+    -   ⚔️ **Weapons**: With automatic AP cost calculation and warnings.
+    -   🔮 **Spells**: With automatic SP deduction and a handy refund button.
+    -   🌟 **Features & Talents**: For both PCs and NPCs.
+    -   🎲 **Skills & Saves**: Quick, rollable buttons for every skill and save.
+-   **👤 Actor-Aware Interface**:
+    -   Shows the selected token's portrait.
+    -   Provides a **GM Character Switcher** to quickly swap between player characters.
+    -   Displays a token's current AP on the canvas during combat.
+-   **🎨 Unified Chat Cards**: All rolls from the HUD or character sheet are intercepted and reformatted into beautiful, easy-to-read chat cards. No more plain white system messages!
+-   **🤖 Smart Action Processing**:
+    -   **Attack Modifiers**: A tactical dialog to add advantage, disadvantage, or extra damage to your attacks.
+    -   **Automatic Crits**: Automatically calculates critical damage for weapon attacks.
+    -   **Hit/Miss Calculation**: Compares attack rolls against a target's Armor Rating (AR) and displays the result (with a privacy setting for GMs).
+    -   **Multiattack Parsing**: Intelligently reads NPC multiattack descriptions and injects clickable action buttons directly into the chat card.
+-   **⚙️ Configuration**:
+    -   Adjust the HUD scale to fit your screen.
+    -   Disable dice roll sounds for a quieter experience.
+    -   Hide Hit/Miss info from players for narrative control.
+-   **🛌 Rest Integration**: A dedicated menu to handle the system's `Breath`, `Recoup`, and `Rest` actions, automatically applying their effects.
 
-## Installation
+## 🚀 Installation
 
 ### Manifest URL (Recommended)
 1. In the Foundry VTT setup screen, go to the "Add-on Modules" tab.
@@ -94,28 +103,17 @@ The module is built specifically for the **Mythcraft** system and uses these dat
 ## Usage
 
 ### Selecting a Token
-1. Click on any token on the map to control it
-2. The HUD will immediately attach and display that actor's information
+Click on any token on the map to control it. The HUD will immediately update to display that actor's information and actions.
 
 ### Using the HUD
-- **Resource Display** (Left) - Shows current HP/AP/SP values
-- **Menu Buttons** (Center) - Click to expand/collapse:
-  - Fist icon: Weapons
-  - Star icon: Spells
-  - Book icon: Features
-  - Dice icon: Skills
-  - Shield icon: Saves
-- **Portrait** (Right) - Current actor's token image
-
-### Expanding Lists
-Click any menu button to show the corresponding item list above the hotbar. Click the same button again to collapse it.
+- **Actor Card**: Shows the character's portrait and real-time resource bars (HP, AP, SP).
+- **Attribute & Defense Bar**: Rollable attribute checks and quick view of defenses. Hover over an attribute to see and roll associated skills.
+- **Action Menus**: Click the icons (⚔️, 🔮, 🌟) to expand a list of available actions. Click the same icon again to collapse it.
 
 ### Rolling Actions
-- **Weapons**: Click weapon → rolls attack with AP deduction check
-- **Spells**: Click spell → rolls spell with SP deduction
-- **Features**: Click feature → uses the item's standard roll
-- **Skills**: Click skill → rolls 1d20 + skill bonus
-- **Saves**: Click save → rolls 1d20 + save bonus
+Simply click on any weapon, spell, feature, skill, or save in the HUD to perform the action. The module will handle the roll, resource costs, and post a formatted card to chat.
+
+For weapon attacks, a **Tactical Modifiers** dialog will appear, allowing you to add situational bonuses, spend AP to reduce costs, or include extra damage dice before you roll.
 
 ## Developer Information
 

@@ -245,38 +245,10 @@ Hooks.once('init', () => {
         return originalCreate.call(this, data, options);
     };
 
-    // Universal Fallback: Intercept sheet rolls that slip past other patches.
-    Hooks.on('preCreateChatMessage', (messageDoc, messageData, options, userId) => {
-        // Check if it's a roll we need to format, and that it's not one we already formatted.
-        if (messageData.rolls && messageData.rolls.length > 0 && !messageData.content?.includes("mythcraft-statblock")) {
-            let rollData = messageData.rolls[0];
-            if (typeof rollData === 'string') {
-                try { rollData = JSON.parse(rollData); } catch (e) { return true; } // Let original message pass if JSON is invalid
-            }
-
-            // Check for the specific roll class from the Mythcraft system.
-            if (rollData.class === "AttributeRoll") {
-                const actor = ChatMessage.getSpeakerActor(messageData.speaker);
-                if (!actor) return true;
-
-                // Re-constitute the Roll instance from the JSON data.
-                const roll = Roll.fromJSON(JSON.stringify(rollData));
-                const attrKey = roll.options?.attribute;
-                const attrName = attrKey ? attrKey.charAt(0).toUpperCase() + attrKey.slice(1) : "Attribute";
-
-                // Use the existing handler to create our professionally styled card.
-                ActionHandler.createProfessionalChatCard({
-                    actor: actor,
-                    title: `${attrName} Check`,
-                    roll: roll,
-                    label: "ATTRIBUTE CHECK"
-                });
-                
-                return false; // This is crucial: it stops the original white chat card from being created.
-            }
-        }
-        return true; // Let all other messages pass through normally.
-    });
+    // The `ChatMessage.create` patch above is now the single point of truth for styling all roll messages.
+    // The `preCreateChatMessage` hook that specifically handled AttributeRolls is no longer needed and was
+    // conflicting with the main patch, causing the double dice roll issue.
+    // By removing it and relying on the `ChatMessage.create` patch, we unify the logic.
 });
 
 Hooks.once('ready', () => {
@@ -324,42 +296,20 @@ Hooks.once('ready', () => {
         const originalMethod = ActorClass.prototype[methodName];
 
         ActorClass.prototype[methodName] = async function(...args) {
-            // 1. Force system to NOT create chat message
-            // Look for options object in arguments or append it
-            let optionsIdx = args.findIndex(arg => typeof arg === 'object' && arg !== null);
-            if (optionsIdx === -1) {
-                args.push({ chatMessage: false });
-            } else {
-                args[optionsIdx] = foundry.utils.mergeObject(args[optionsIdx], { chatMessage: false });
-            }
-
-            // 2. Call original method (triggers Dialog)
-            const roll = await originalMethod.apply(this, args);
-
-            // 3. Intercept result and redirect to HUD
-            if (roll instanceof Roll) {
-                // Determine title from first argument (usually ID)
-                let title = (typeof args[0] === 'string') ? args[0].charAt(0).toUpperCase() + args[0].slice(1) : "System Roll";
-                if (typeLabel.includes("SKILL")) title += " Check";
-                else if (typeLabel.includes("SAVE")) title += " Save";
-                else if (typeLabel.includes("ATTRIBUTE")) title += " Check";
-
-                await ActionHandler.createProfessionalChatCard({
-                    actor: this,
-                    title: title,
-                    roll: roll,
-                    label: typeLabel
-                });
-            }
-            return roll;
+            // By simply calling the original method, we allow it to create a standard chat message.
+            // Our powerful `ChatMessage.create` patch will then intercept this message,
+            // re-style it into our professional card, and handle the 3D dice roll.
+            // This unifies all sheet rolls (attributes, skills, saves) into a single, reliable pipeline
+            // and fixes the double dice roll bug.
+            return await originalMethod.apply(this, args);
         };
     };
 
     // Apply patches to likely system methods
     patchSystemRoll('rollSkill', 'SKILL CHECK');
     patchSystemRoll('rollSave', 'SAVE CHECK');
-    // patchSystemRoll('rollAttribute', 'ATTRIBUTE CHECK');
-    // patchSystemRoll('rollAttributeCheck', 'ATTRIBUTE CHECK');
+    patchSystemRoll('rollAttribute', 'ATTRIBUTE CHECK');
+    patchSystemRoll('rollAttributeCheck', 'ATTRIBUTE CHECK');
 
     // Prompt 3: Unified Interaction - Handle click on parent .hud-action-button
     $(document).on('click', '.hud-action-button', function(e) {
