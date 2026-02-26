@@ -1,4 +1,4 @@
-# Mythcraft HUD Module (0.9.2-hotfix) 🐲
+# Mythcraft HUD Module (0.9.3-beta) 🐲
 
 [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jitterbone)
 
@@ -161,6 +161,7 @@ static async executeCustomAction(itemId, actor) {
 - **System**: Mythcraft v0.6.4+
 - **Foundry VTT**: v13+
 - **Dependencies**: Requires the Dice So Nice! module for 3D dice.
+- **Dependencies**: Integrates with Dice So Nice! for 3D dice, but it is not required.
 
 ## Known Issues & Limitations
 

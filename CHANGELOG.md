@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3-beta] - 2024-05-29
+
+### Fixed
+- **Skill Mapping**: Completely overhauled the skill-to-attribute mapping logic. The HUD now uses a comprehensive fallback map based on the official Mythcraft SRD to correctly categorize all skills, even when attribute data is missing from the character sheet. Uncategorized skills will now appear in a dedicated 'UNC' group, ensuring no skill is ever hidden.
+
+### Changed
+- **Skill Labels**: Improved skill label generation to correctly format camelCase keys (e.g., `sleightOfHand`) into readable names (`Sleight Of Hand`).
+
 ## [0.9.2-hotfix-1] - 2024-05-28
 
 ### Fixed
