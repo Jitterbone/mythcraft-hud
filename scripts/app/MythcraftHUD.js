@@ -132,17 +132,22 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         // Keys are lowercase and have no spaces for consistent matching.
         const skillMap = {
             // STR
-            'athletics': 'str', 'sprinting': 'str', 'climbing': 'str', 'swimming': 'str',
+            'athletics': 'str', 'sprinting': 'str', 'climbing': 'str', 'swimming': 'str', 'appliedforce': 'str',
+
             // DEX
-            'acrobatics': 'dex', 'balancing': 'dex', 'tumbling': 'dex', 'sleightofhand': 'dex', 'stealth': 'dex', 'hiding': 'dex', 'movingsilently': 'dex',
+            'acrobatics': 'dex', 'balancing': 'dex', 'tumbling': 'dex', 'sleightofhand': 'dex', 'stealth': 'dex', 'hiding': 'dex', 'movingsilently': 'dex', 'contorting': 'dex', 'dancing': 'dex', 'sneaking': 'dex', 'lockpicking': 'dex', 'evading': 'dex',
+
             // END
             'endurance': 'end', 'forcedmarch': 'end', 'holdingbreath': 'end', 'distancerunning': 'end',
+
             // INT
-            'arcana': 'int', 'history': 'int', 'investigation': 'int', 'investigating': 'int', 'nature': 'int', 'religion': 'int', 'engineering': 'int', 'crafting': 'int', 'cooking': 'int',
+            'arcana': 'int', 'history': 'int', 'investigation': 'int', 'investigating': 'int', 'nature': 'int', 'religion': 'int', 'engineering': 'int', 'crafting': 'int', 'cooking': 'int', 'art': 'int', 'astrology': 'int', 'astronomy': 'int', 'biology': 'int', 'brewing': 'int', 'calligraphy': 'int', 'carpentry': 'int', 'cartography': 'int', 'chemistry': 'int', 'cobbling': 'int', 'dungeoneering': 'int', 'appraising': 'int', 'economics': 'int', 'alchemy': 'int', 'forging': 'int', 'geography': 'int', 'glassblowing': 'int', 'jeweling': 'int', 'law': 'int', 'leatherworking': 'int', 'masonry': 'int', 'military': 'int', 'painting': 'int', 'politics': 'int', 'pottery': 'int', 'smithing': 'int', 'weaving': 'int', 'woodcarving': 'int', 'vehiclesland': 'int', 'vehicleswater': 'int',
+
             // AWA
-            'animalhandling': 'awa', 'insight': 'awa', 'empathy': 'awa', 'medicine': 'awa', 'perception': 'awa', 'survival': 'awa', 'eavesdropping': 'awa',
+            'animalhandling': 'awa', 'insight': 'awa', 'empathy': 'awa', 'medicine': 'awa', 'perception': 'awa', 'survival': 'awa', 'eavesdropping': 'awa', 'foraging': 'awa', 'intuiting': 'awa', 'navigating': 'awa', 'perceiving': 'awa', 'sheltering': 'awa', 'tracking': 'awa',
+
             // CHA
-            'deception': 'cha', 'deceiving': 'cha', 'intimidation': 'cha', 'performance': 'cha', 'persuasion': 'cha', 'persuading': 'cha'
+            'deception': 'cha', 'deceiving': 'cha', 'intimidation': 'cha', 'performance': 'cha', 'persuasion': 'cha', 'persuading': 'cha', 'menacing': 'cha', 'disguising': 'cha', 'entertaining': 'cha', 'gossiping': 'cha', 'instrument': 'cha', 'leadership': 'cha', 'savoirfaire': 'cha'
         };
 
         for (const [key, skill] of Object.entries(skills)) {
