@@ -631,12 +631,9 @@ export class ActionHandler {
         // preventing the message from being sent to the rolling player at all.
         ChatMessage.applyRollMode(chatData, chatRollMode);
 
-        if (roll && game.dice3d) {
-            // For 3D dice, pass the whisper targets and the original `isBlind` flag
-            // to ensure Dice So Nice also hides the roll from the player.
-            await game.dice3d.showForRoll(roll, game.user, true, chatData.whisper, isBlind);
-        }
-
+        // The Dice So Nice! integration has been temporarily disabled as per your request.
+        // Because the module uses custom chat cards, this will prevent 3D dice from showing
+        // for these rolls until the integration is re-enabled.
         return ChatMessage.create(chatData);
     }
 

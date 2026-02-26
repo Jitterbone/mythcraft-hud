@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2-hotfix-1] - 2024-05-28
+
+### Fixed
+- **NPC AP Display**: The on-token AP display no longer appears for NPC actors, reducing clutter for the GM.
+
+### Changed
+- **Dice So Nice!**: Temporarily disabled the module's manual integration with Dice So Nice! to resolve a dice visibility issue. This will be revisited in a future update.
+
 ## [0.9.2-hotfix] - 2024-05-28
 
 ### Added

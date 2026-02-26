@@ -226,19 +226,14 @@ Hooks.once('init', () => {
                 d.type = CONST.CHAT_MESSAGE_TYPES.OTHER; // Prevent default roll rendering
                 d.flavor = ""; // Clear flavor to avoid duplication
                 
+                // Determine the roll mode from options to correctly handle dice visibility.
+                const chatRollMode = options.rollMode || game.settings.get("core", "rollMode");
+
                 if (!d.sound && d.rolls?.length > 0) d.sound = CONFIG.sounds.dice;
 
-                // Manually handle 3D dice since we are bypassing the default roll message type.
-                // We must do this because we are changing the message type to OTHER.
-                if (game.dice3d && d.rolls?.length > 0) {
-                    const rollInstance = d.rolls[0];
-                    if (rollInstance instanceof Roll) {
-                        // The original `isBlind` flag tells Dice So Nice to hide the roll from the roller.
-                        // The `d.whisper` array (which is empty for blind rolls) tells it who to show to.
-                        // `d.blind` being true on the message data handles the chat visibility.
-                        await game.dice3d.showForRoll(rollInstance, game.user, true, d.whisper, isBlind);
-                    }
-                }
+                // The Dice So Nice! integration has been temporarily disabled as per your request.
+                // Because the module uses custom chat cards (by changing the message type to OTHER),
+                // this will prevent 3D dice from showing for these rolls until the integration is re-enabled.
             }
         }
         
@@ -501,6 +496,9 @@ function updateTokenAP(token) {
     }
 
     if (!token.controlled) return;
+    // Do not show AP text for NPC actors.
+    if (token.actor?.type === 'npc') return;
+
     if (!token.inCombat) return;
 
     const combat = game.combat;
