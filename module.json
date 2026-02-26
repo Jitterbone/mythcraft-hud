@@ -2,7 +2,7 @@
   "id": "mythcraft-hud",
   "title": "Mythcraft HUD",
   "description": "A modular, persistent contextual HUD for the Mythcraft system in Foundry VTT. Replaces the default hotbar with a dynamic, actor-aware interface.",
-  "version": "0.9.3-beta",
+  "version": "0.9.3-beta-1",
   "compatibility": {
     "minimum": "13",
     "verified": "13"

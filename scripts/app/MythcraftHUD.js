@@ -282,6 +282,9 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         const recoupFeature = findRestFeature(features, 'Recoup', 'recoup');
         const restFeature = findRestFeature(features, 'Take a Rest', 'take a rest');
  
+        // Check for Bloodied condition: HP is at or below 50% of max.
+        const isBloodied = system.hp.value <= (system.hp.max / 2);
+
         const restData = {
             breathFeature: breathFeature,
             recoupFeature: recoupFeature,
@@ -289,6 +292,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             hasBreathFeature: !!breathFeature,
             hasRecoupFeature: !!recoupFeature,
             hasRestFeature: !!restFeature,
+            isBloodied: isBloodied,
+            // The 'canRecoup' guard is removed; Recoup is always available if the feature exists.
         };
 
         // Prepare Death Data
@@ -790,26 +795,60 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         
         let restName = '';
         let featureItem = null;
+        let changes = [];
     
         switch (restType) {
             case 'breath':
                 restName = 'is Catching their Breath';
                 featureItem = restFeatures.breathFeature;
+                changes = await ActionHandler.executeRest(actor, restType);
                 break;
             case 'recoup':
                 restName = 'is Recouping';
                 featureItem = restFeatures.recoupFeature;
+
+                // Custom logic for Recoup based on detailed rules.
+                const updates = {};
+
+                // 1. HP Gain (only if Bloodied)
+                const maxHP = actor.system.hp.max;
+                const currentHP = actor.system.hp.value;
+                const bloodiedThreshold = Math.floor(maxHP / 2);
+
+                if (currentHP <= bloodiedThreshold) {
+                    const potentialHPRestored = Math.floor(maxHP / 4);
+                    // HP cannot be restored above the bloodied threshold.
+                    const maxPossibleHP = bloodiedThreshold;
+                    const actualHPRestored = Math.min(potentialHPRestored, maxPossibleHP - currentHP);
+
+                    if (actualHPRestored > 0) {
+                        updates['system.hp.value'] = currentHP + actualHPRestored;
+                        changes.push(`Regained ${actualHPRestored} HP.`);
+                    }
+                }
+
+                // 2. Remove 1 Death Point
+                const currentDeath = actor.system.death?.value || 0;
+                if (currentDeath > 0) {
+                    updates['system.death.value'] = Math.max(0, currentDeath - 1);
+                    changes.push(`Removed 1 Death Point.`);
+                }
+
+                // 3. Include "Catch your Breath" effects
+                const breathChanges = await ActionHandler.executeRest(actor, 'breath');
+                changes.push(...breathChanges.filter(c => c)); // Add non-empty changes
+
+                // Apply all updates to the actor
+                if (Object.keys(updates).length > 0) await actor.update(updates);
                 break;
             case 'rest':
                 restName = 'is Taking a Rest';
                 featureItem = restFeatures.restFeature;
+                changes = await ActionHandler.executeRest(actor, restType);
                 break;
         }
 
         if (!restName) return;
-
-        // Execute the rest logic and get a list of changes
-        const changes = await ActionHandler.executeRest(actor, restType);
 
         let content = `<p><strong>${actor.name}</strong> ${restName}.</p>`;
 

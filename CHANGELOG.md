@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.3-beta-1] - 2024-05-29
+
+### Changed
+- **Recoup Action**: Reworked the `Recoup` action to precisely follow system rules. The action is always available, but HP gain is now conditional on the character being "Bloodied" (at or below 50% HP). The logic correctly calculates HP restored (up to 1/4 max HP, capped at the Bloodied threshold), removes one Death Point, and incorporates the effects of "Catch your Breath".
+
 ## [0.9.3-beta] - 2024-05-29
 
 ### Fixed
