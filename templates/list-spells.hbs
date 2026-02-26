@@ -11,7 +11,7 @@
                 </div>
                 <div class="hud-row-bottom">
                     <span class="hud-attr-text">{{system.attrKey}}</span>
-                    <span class="hud-cost-text">{{system.apCost}} AP</span>
+                    {{#if system.apCost}}<span class="hud-cost-text">{{system.apCost}} AP</span>{{/if}}
                     {{#if system.spc}}<span class="hud-cost-text sp" style="margin-left: 4px;">{{system.spc}} SP</span>{{/if}}
                     {{#if system.resolvedDmg}}<span class="hud-dmg-formula">{{system.resolvedDmg}}</span>{{/if}}
                 </div>

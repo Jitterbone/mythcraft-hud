@@ -424,6 +424,15 @@ export class ActionHandler {
         if (primaryDmg) {
             const primaryType = item.system.damage?.type || "Damage";
             let finalDamageFormula = primaryDmg;
+            
+            // Re-fetch attribute key and value to add to damage, mirroring scraper logic
+            const defaultAttr = isSpell ? (actor.system.sp?.attribute || "int") : "str";
+            const damageAttrKey = (item.system.attr || defaultAttr).toLowerCase();
+            const attrVal = this.getAttributeValue(actor, damageAttrKey);
+
+            if (attrVal !== 0 && !finalDamageFormula.toLowerCase().includes(damageAttrKey)) {
+                 finalDamageFormula = `${finalDamageFormula} + ${attrVal}`;
+            }
 
             if (options.extraDice) {
                 finalDamageFormula += ` + ${options.extraDice}`;
