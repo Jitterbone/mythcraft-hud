@@ -10,8 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.2-hotfix-1] - 2024-05-28
 
 ### Fixed
-- **Dice So Nice! Visibility**: Corrected a critical issue where 3D dice rolls were not visible to other players for non-public rolls. The module now correctly provides the list of recipient `User` objects to Dice So Nice!, ensuring that private, blind, and GM rolls respect the user's roll mode settings.
-- **NPC AP Display**: The on-token AP display no longer appears for NPC actors, reducing clutter for the GM.
+- **Dice So Nice! Integration**: Resolved an issue that caused two sets of 3D dice to appear for a single roll. The roll processing logic has been corrected to prevent duplicate dice animations.
+- **Dice Roll Privacy**: Ensured that public rolls are visible to all players, while private rolls are correctly whispered, respecting the user's dice privacy settings.
+- **Spell AP Cost**: Fixed a bug where the Action Point (AP) cost for spells was not being calculated or displayed correctly in the spell list.
+
+### Changed
+- **Dice So Nice! Dependency**: The integration with "Dice So Nice!" is now optional. The module will no longer require it to be installed and will function correctly (without 3D dice) if it is not present.
 
 ## [0.9.2-hotfix] - 2024-05-28
 
