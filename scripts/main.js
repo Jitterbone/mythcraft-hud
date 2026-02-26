@@ -39,16 +39,6 @@ Hooks.once('init', () => {
         default: false
     });
 
-    game.settings.register('mythcraft-hud', 'hideHitMissInfo', {
-        name: "Hide Hit/Miss Info from Players",
-        hint: "When enabled, the AR and Hit/Miss result of an attack will only be visible to the GM.",
-        scope: "world",
-        config: true,
-        type: Boolean,
-        default: false,
-        requiresReload: false
-    });
-
     // 1. Dialog & Popup Overhaul (CSS Variables)
     const style = document.createElement('style');
     style.innerHTML = `
@@ -424,17 +414,8 @@ Hooks.once('ready', () => {
                 }
             }
         }
-        // Always update AP display for the token that changed state
-        // The on-token AP display has been temporarily disabled to investigate a potential
-        // conflict causing issues with token movement and rotation.
-        // updateTokenAP(token);
-    });
-
-    // Manually scrub GM-only data from chat cards for players
-    Hooks.on('renderChatMessage', (message, html, data) => {
-        if (!game.user.isGM) {
-            html.find('.mythcraft-hit-box[data-visibility="gm"]').remove();
-        }
+        // Always update AP display for the token that changed control state.
+        updateTokenAP(token);
     });
 
     // Consolidated hook to refresh the HUD when any relevant document changes.
@@ -454,15 +435,11 @@ Hooks.once('ready', () => {
 
     Hooks.on('updateActor', (actor, changes, options, userId) => {
         refreshHUDOnUpdate(actor);
-        /*
-        // The on-token AP display has been temporarily disabled to investigate a potential
-        // conflict causing issues with token movement and rotation.
         if (changes.system?.ap) {
             actor.getActiveTokens().forEach(t => {
                 if (t.controlled) updateTokenAP(t);
             });
         }
-        */
     });
     Hooks.on('updateItem', (item, changes, options, userId) => refreshHUDOnUpdate(item));
     Hooks.on('createItem', (item, options, userId) => refreshHUDOnUpdate(item));
@@ -471,10 +448,11 @@ Hooks.once('ready', () => {
     // --- COMBAT & AP HOOKS ---
     // Update AP when turn changes
     Hooks.on('updateCombat', async (combat, updateData, options, userId) => {
-        // The on-token AP display has been temporarily disabled to investigate a potential
-        // conflict causing issues with token movement and rotation.
-        // canvas.tokens.controlled.forEach(t => updateTokenAP(t));
-        
+        // When the turn changes, update AP display for all tokens in the combat
+        // to correctly reflect the active turn color.
+        combat.combatants.forEach(c => {
+            if (c.token?.object) updateTokenAP(c.token.object);
+        });
         // Reactive AP Logic (GM Only)
         if (game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
             const combatant = combat.combatant;
@@ -511,19 +489,16 @@ Hooks.once('ready', () => {
     });
 
     Hooks.on('deleteCombat', () => {
-        // The on-token AP display has been temporarily disabled to investigate a potential
-        // conflict causing issues with token movement and rotation.
-        // canvas.tokens.controlled.forEach(t => updateTokenAP(t));
+        // When combat ends, iterate all tokens on the canvas to remove their AP display.
+        canvas.tokens.placeables.forEach(t => updateTokenAP(t));
     });
 });
 
 // --- AP DISPLAY LOGIC ---
-// NOTE: The on-token AP display feature has been temporarily disabled to investigate a
-// potential conflict causing issues with token movement and rotation. The `updateTokenAP`
-// function and its calls in the hooks above have been commented out.
 const apTextMap = new Map();
 
 function updateTokenAP(token) {
+    if (!token) return; // Safety guard
     // Cleanup existing text
     if (apTextMap.has(token.id)) {
         const text = apTextMap.get(token.id);

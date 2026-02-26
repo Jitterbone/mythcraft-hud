@@ -15,7 +15,7 @@
         </div>
         {{/if}}
     </div>
-    <div class="hud-rest-row {{#if restFeatures.hasRecoupFeature}}rest-feature-active{{/if}}" data-rest-type="recoup">
+    <div class="hud-rest-row {{#if restFeatures.hasRecoupFeature}}rest-feature-active{{/if}}" data-rest-type="recoup" title="{{#if restFeatures.isBloodied}}Bloodied{{else}}Not Bloodied{{/if}}">
         <i class="fas fa-campfire"></i>
         <span class="rest-name">Recoup</span>
         <span class="rest-duration">1 Hour</span>

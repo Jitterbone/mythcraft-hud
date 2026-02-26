@@ -1,4 +1,4 @@
-# Mythcraft HUD Module (0.9.3-betathubbutton_sm.svg)](https://ko-fi.com/jitterbone)
+# Mythcraft HUD Module (0.9.5-beta) 🐲
 
 A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
 
@@ -19,12 +19,10 @@ A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft*
 -   **🤖 Smart Action Processing**:
     -   **Attack Modifiers**: A tactical dialog to add advantage, disadvantage, or extra damage to your attacks.
     -   **Automatic Crits**: Automatically calculates critical damage for weapon attacks.
-    -   **Hit/Miss Calculation**: Compares attack rolls against a target's Armor Rating (AR) and displays the result (with a privacy setting for GMs).
     -   **Multiattack Parsing**: Intelligently reads NPC multiattack descriptions and injects clickable action buttons directly into the chat card.
 -   **⚙️ Configuration**:
     -   Adjust the HUD scale to fit your screen.
     -   Disable dice roll sounds for a quieter experience.
-    -   Hide Hit/Miss info from players for narrative control.
 -   **🛌 Rest Integration**: A dedicated menu to handle the system's `Breath`, `Recoup`, and `Rest` actions, automatically applying their effects.
 
 ## 🚀 Installation
@@ -158,7 +156,6 @@ static async executeCustomAction(itemId, actor) {
 
 - **System**: Mythcraft v0.6.4+
 - **Foundry VTT**: v13+
-- **Dependencies**: Requires the Dice So Nice! module for 3D dice.
 - **Dependencies**: Integrates with Dice So Nice! for 3D dice, but it is not required.
 
 ## Known Issues & Limitations
