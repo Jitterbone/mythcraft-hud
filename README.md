@@ -1,4 +1,4 @@
-# Mythcraft HUD Module (0.9.5-beta) 🐲
+# Mythcraft HUD Module (0.9.4-beta) 🐲
 
 A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
 

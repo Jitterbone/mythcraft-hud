@@ -7,12 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.5-beta] - 2024-05-29
+## [0.9.4-beta] - 2024-05-29
 
 ### Changed
 - **AP Token Display**: Re-enabled the on-token AP display that appears above character tokens during combat. The logic has also been improved to be more reliable when combat turns change or when combat ends.
-
-## [0.9.4-beta] - 2024-05-29
 
 ### Removed
 - **Hit/Miss Notifier**: Removed the automatic Hit/Miss calculation and display when targeting an actor to streamline combat rolls. The associated "Hide Hit/Miss Info" setting has also been removed.
