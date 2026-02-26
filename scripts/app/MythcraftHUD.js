@@ -109,6 +109,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
     _groupSkillsByAttribute(skills = {}, pairs = []) {
         const skillsByAttr = {};
         pairs.forEach(p => skillsByAttr[p.id] = []);
+        skillsByAttr.uncategorized = []; // Add a bucket for uncategorized skills
 
         // Create a reverse map from all possible attribute names to the canonical pair ID.
         // This ensures that skills with attributes like 'con' or 'constitution' are correctly
@@ -130,46 +131,97 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // Fallback map for skills if attribute is missing on the skill object.
         // Keys are lowercase and have no spaces for consistent matching.
+        // This map is based on the official Mythcraft SRD and supplemented with common skills.
         const skillMap = {
             // STR
-            'athletics': 'str', 'sprinting': 'str', 'climbing': 'str', 'swimming': 'str', 'appliedforce': 'str',
-
+            'appliedforce': 'str',
+            'athletics': 'str',
+            'climbing': 'str',
+            'menacing': 'str',
+            'sprinting': 'str',
+            'swimming': 'str',
             // DEX
-            'acrobatics': 'dex', 'balancing': 'dex', 'tumbling': 'dex', 'sleightofhand': 'dex', 'stealth': 'dex', 'hiding': 'dex', 'movingsilently': 'dex', 'contorting': 'dex', 'dancing': 'dex', 'sneaking': 'dex', 'lockpicking': 'dex', 'evading': 'dex',
-
+            'acrobatics': 'dex',
+            'balancing': 'dex',
+            'contorting': 'dex',
+            'dancing': 'dex',
+            'hiding': 'dex',
+            'movingsilently': 'dex',
+            'sneaking': 'dex',
+            'stealth': 'dex',
+            'tumbling': 'dex',
             // END
-            'endurance': 'end', 'forcedmarch': 'end', 'holdingbreath': 'end', 'distancerunning': 'end',
-
-            // INT
-            'arcana': 'int', 'history': 'int', 'investigation': 'int', 'investigating': 'int', 'nature': 'int', 'religion': 'int', 'engineering': 'int', 'crafting': 'int', 'cooking': 'int', 'art': 'int', 'astrology': 'int', 'astronomy': 'int', 'biology': 'int', 'brewing': 'int', 'calligraphy': 'int', 'carpentry': 'int', 'cartography': 'int', 'chemistry': 'int', 'cobbling': 'int', 'dungeoneering': 'int', 'appraising': 'int', 'economics': 'int', 'alchemy': 'int', 'forging': 'int', 'geography': 'int', 'glassblowing': 'int', 'jeweling': 'int', 'law': 'int', 'leatherworking': 'int', 'masonry': 'int', 'military': 'int', 'painting': 'int', 'politics': 'int', 'pottery': 'int', 'smithing': 'int', 'weaving': 'int', 'woodcarving': 'int', 'vehiclesland': 'int', 'vehicleswater': 'int',
-
+            'distancerunning': 'end',
+            'endurance': 'end',
+            'forcedmarch': 'end',
+            'holdingbreath': 'end',
             // AWA
-            'animalhandling': 'awa', 'insight': 'awa', 'empathy': 'awa', 'medicine': 'awa', 'perception': 'awa', 'survival': 'awa', 'eavesdropping': 'awa', 'foraging': 'awa', 'intuiting': 'awa', 'navigating': 'awa', 'perceiving': 'awa', 'sheltering': 'awa', 'tracking': 'awa',
-
+            'animalhandling': 'awa',
+            'eavesdropping': 'awa',
+            'foraging': 'awa',
+            'insight': 'awa',
+            'intuiting': 'awa',
+            'investigating': 'awa',
+            'investigation': 'awa',
+            'navigating': 'awa',
+            'perceiving': 'awa',
+            'perception': 'awa',
+            'sheltering': 'awa',
+            'survival': 'awa',
+            'tracking': 'awa',
+            // INT
+            'alchemy': 'int', 'appraising': 'int', 'arcana': 'int', 'art': 'int', 'astrology': 'int', 'astronomy': 'int', 'biology': 'int', 'brewing': 'int', 'calligraphy': 'int', 'carpentry': 'int', 'cartography': 'int', 'chemistry': 'int', 'cobbling': 'int', 'cooking': 'int', 'crafting': 'int', 'disguising': 'int', 'dungeoneering': 'int', 'economics': 'int', 'engineering': 'int', 'evading': 'int', 'forging': 'int', 'geography': 'int', 'glassblowing': 'int', 'history': 'int', 'jeweling': 'int', 'law': 'int', 'leatherworking': 'int', 'lockpicking': 'int', 'masonry': 'int', 'medicine': 'int', 'military': 'int', 'nature': 'int', 'painting': 'int', 'politics': 'int', 'pottery': 'int', 'religion': 'int', 'sleightofhand': 'int', 'smithing': 'int', 'vehiclesland': 'int', 'vehicleswater': 'int', 'weaving': 'int', 'woodcarving': 'int',
             // CHA
-            'deception': 'cha', 'deceiving': 'cha', 'intimidation': 'cha', 'performance': 'cha', 'persuasion': 'cha', 'persuading': 'cha', 'menacing': 'cha', 'disguising': 'cha', 'entertaining': 'cha', 'gossiping': 'cha', 'instrument': 'cha', 'leadership': 'cha', 'savoirfaire': 'cha'
+            'deceiving': 'cha',
+            'deception': 'cha',
+            'empathy': 'cha',
+            'entertaining': 'cha',
+            'gossiping': 'cha',
+            'instrument': 'cha',
+            'intimidating': 'cha',
+            'leadership': 'cha',
+            'performance': 'cha',
+            'persuading': 'cha',
+            'persuasion': 'cha',
+            'savoirfaire': 'cha',
+            // LCK
+            'fortuity': 'lck',
+            'scavenging': 'lck'
         };
 
         for (const [key, skill] of Object.entries(skills)) {
-            let attr = skill.attribute || skill.ability;
+            if (!key || typeof skill !== 'object' || skill === null) continue;
 
-            // If no attribute is defined on the skill, use the fallback map.
-            if (!attr) {
-                // Normalize the incoming key to match the map (lowercase, no spaces/dashes).
+            const attr = skill.attribute || skill.ability;
+            let canonicalAttr = attr ? attrToPairId[attr.toLowerCase()] : null;
+
+            // If the attribute on the skill object is missing or invalid (doesn't map to a canonical attribute),
+            // then try to find it using the fallback map based on the skill's key.
+            // This is more robust and handles cases where `skill.attribute` might be `""` or some other junk value.
+            if (!canonicalAttr) {
                 const normalizedKey = key.toLowerCase().replace(/[\s-]/g, '');
-                if (skillMap[normalizedKey]) {
-                    attr = skillMap[normalizedKey];
+                const fallbackAttr = skillMap[normalizedKey]; // e.g., 'awa'
+                if (fallbackAttr) {
+                    // The fallback map uses canonical IDs, so we can assign it directly.
+                    canonicalAttr = fallbackAttr;
                 }
             }
-            
-            // Normalize the attribute key to the canonical pair ID (e.g., 'con' -> 'end')
-            const canonicalAttr = attr ? attrToPairId[attr.toLowerCase()] : null;
+
+            // Prepare the skill entry object
+            const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
+            // Improved label generation for camelCase keys like 'sleightOfHand' -> 'Sleight Of Hand'
+            const label = skill.label || key.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+            const skillEntry = { id: key, label: label, value: (bonus >= 0 ? "+" : "") + bonus };
 
             if (canonicalAttr && skillsByAttr[canonicalAttr]) {
-                const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
-                skillsByAttr[canonicalAttr].push({ id: key, label: skill.label || (key.charAt(0).toUpperCase() + key.slice(1)), value: (bonus >= 0 ? "+" : "") + bonus });
+                skillsByAttr[canonicalAttr].push(skillEntry);
+            } else {
+                // If still no attribute, put it in the uncategorized list for display
+                skillsByAttr.uncategorized.push(skillEntry);
             }
         }
+        // Filter out the empty key entry that sometimes appears in system data
+        skillsByAttr.uncategorized = skillsByAttr.uncategorized.filter(s => s.id !== '');
         return skillsByAttr;
     }
 
@@ -295,6 +347,20 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             skills: skillsByAttr[p.id]?.sort((a, b) => a.label.localeCompare(b.label)) || [],
             hasSkills: (skillsByAttr[p.id]?.length || 0) > 0
         }));
+
+        // Add the uncategorized skills as a separate group if they exist.
+        // This ensures that even if a skill's attribute can't be determined, it still appears on the HUD.
+        if (skillsByAttr.uncategorized && skillsByAttr.uncategorized.length > 0) {
+            attributeList.push({
+                id: 'unc',
+                label: 'UNC',
+                value: '-',
+                defLabel: 'Misc',
+                defVal: '',
+                skills: skillsByAttr.uncategorized.sort((a, b) => a.label.localeCompare(b.label)),
+                hasSkills: true
+            });
+        }
 
         // We store this on the class so we can easily pass it to the list templates later
         this.currentData = {
