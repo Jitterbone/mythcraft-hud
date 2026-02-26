@@ -110,23 +110,59 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         const skillsByAttr = {};
         pairs.forEach(p => skillsByAttr[p.id] = []);
 
-        // Fallback map for skills if attribute is missing on the skill object
+        // Create a reverse map from all possible attribute names to the canonical pair ID.
+        // This ensures that skills with attributes like 'con' or 'constitution' are correctly
+        // mapped to the 'end' group used by the HUD.
+        const attrToPairId = {};
+        const pairDefinitions = {
+            str: ['str', 'strength'],
+            dex: ['dex', 'agi', 'agility'],
+            end: ['end', 'con', 'stamina', 'constitution', 'endurance'],
+            int: ['int', 'intelligence'],
+            awa: ['awa', 'awr', 'per', 'perception', 'wis', 'wisdom'],
+            cha: ['cha', 'charisma']
+        };
+        for (const pairId in pairDefinitions) {
+            for (const alias of pairDefinitions[pairId]) {
+                attrToPairId[alias] = pairId;
+            }
+        }
+
+        // Fallback map for skills if attribute is missing on the skill object.
+        // Keys are lowercase and have no spaces for consistent matching.
         const skillMap = {
+            // STR
             'athletics': 'str', 'sprinting': 'str', 'climbing': 'str', 'swimming': 'str',
-            'acrobatics': 'dex', 'balancing': 'dex', 'tumbling': 'dex', 'sleight of hand': 'dex', 'stealth': 'dex', 'hiding': 'dex', 'moving silently': 'dex',
-            'endurance': 'end', 'forced march': 'end', 'holding breath': 'end',
+            // DEX
+            'acrobatics': 'dex', 'balancing': 'dex', 'tumbling': 'dex', 'sleightofhand': 'dex', 'stealth': 'dex', 'hiding': 'dex', 'movingsilently': 'dex',
+            // END
+            'endurance': 'end', 'forcedmarch': 'end', 'holdingbreath': 'end', 'distancerunning': 'end',
+            // INT
             'arcana': 'int', 'history': 'int', 'investigation': 'int', 'investigating': 'int', 'nature': 'int', 'religion': 'int', 'engineering': 'int', 'crafting': 'int', 'cooking': 'int',
-            'animal handling': 'awa', 'insight': 'awa', 'empathy': 'awa', 'medicine': 'awa', 'perception': 'awa', 'survival': 'awa', 'eavesdropping': 'awa',
+            // AWA
+            'animalhandling': 'awa', 'insight': 'awa', 'empathy': 'awa', 'medicine': 'awa', 'perception': 'awa', 'survival': 'awa', 'eavesdropping': 'awa',
+            // CHA
             'deception': 'cha', 'deceiving': 'cha', 'intimidation': 'cha', 'performance': 'cha', 'persuasion': 'cha', 'persuading': 'cha'
         };
 
         for (const [key, skill] of Object.entries(skills)) {
             let attr = skill.attribute || skill.ability;
-            if (!attr && skillMap[key.toLowerCase()]) attr = skillMap[key.toLowerCase()];
+
+            // If no attribute is defined on the skill, use the fallback map.
+            if (!attr) {
+                // Normalize the incoming key to match the map (lowercase, no spaces/dashes).
+                const normalizedKey = key.toLowerCase().replace(/[\s-]/g, '');
+                if (skillMap[normalizedKey]) {
+                    attr = skillMap[normalizedKey];
+                }
+            }
             
-            if (attr && skillsByAttr[attr]) {
+            // Normalize the attribute key to the canonical pair ID (e.g., 'con' -> 'end')
+            const canonicalAttr = attr ? attrToPairId[attr.toLowerCase()] : null;
+
+            if (canonicalAttr && skillsByAttr[canonicalAttr]) {
                 const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
-                skillsByAttr[attr].push({ id: key, label: skill.label || (key.charAt(0).toUpperCase() + key.slice(1)), value: (bonus >= 0 ? "+" : "") + bonus });
+                skillsByAttr[canonicalAttr].push({ id: key, label: skill.label || (key.charAt(0).toUpperCase() + key.slice(1)), value: (bonus >= 0 ? "+" : "") + bonus });
             }
         }
         return skillsByAttr;

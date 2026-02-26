@@ -634,7 +634,7 @@ export class ActionHandler {
         if (roll && game.dice3d) {
             // For 3D dice, pass the whisper targets and the original `isBlind` flag
             // to ensure Dice So Nice also hides the roll from the player.
-            game.dice3d.showForRoll(roll, game.user, true, chatData.whisper, isBlind);
+            await game.dice3d.showForRoll(roll, game.user, true, chatData.whisper, isBlind);
         }
 
         return ChatMessage.create(chatData);

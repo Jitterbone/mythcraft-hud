@@ -365,6 +365,14 @@
 
 .hud-attr-btn.has-skills {
     color: #FEEBB3;
+    border-color: #d3c4a3; /* Gold border */
+    box-shadow: 0 0 5px rgba(211, 196, 163, 0.3); /* Subtle gold glow */
+}
+
+.hud-attr-btn.has-skills .attr-label,
+.hud-attr-btn.has-skills .attr-val {
+    color: #FEEBB3; /* Gold color for both label and value */
+    text-shadow: 0 0 4px rgba(254, 235, 179, 0.5); /* Gold text glow */
 }
 
 .hud-attr-btn:hover {
@@ -1253,8 +1261,8 @@ body.vtt .myth-hud-dialog input:focus {
 }
 
 body.vtt .myth-hud-dialog .dialog-buttons button {
-    background: rgba(58, 122, 127, 0.3);
-    border: 1px solid #3a7a7f;
+    background: #0f2a2b; /* Use a solid dark color for better contrast */
+    border: 1px solid #5a9a9f;
     color: #FEEBB3;
     text-transform: uppercase;
     font-weight: bold;

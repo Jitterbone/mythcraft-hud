@@ -236,7 +236,7 @@ Hooks.once('init', () => {
                         // The original `isBlind` flag tells Dice So Nice to hide the roll from the roller.
                         // The `d.whisper` array (which is empty for blind rolls) tells it who to show to.
                         // `d.blind` being true on the message data handles the chat visibility.
-                        game.dice3d.showForRoll(rollInstance, game.user, true, d.whisper, isBlind);
+                        await game.dice3d.showForRoll(rollInstance, game.user, true, d.whisper, isBlind);
                     }
                 }
             }

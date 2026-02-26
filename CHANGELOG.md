@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.2-hotfix] - 2024-05-28
+
+### Added
+- **Dice So Nice! Integration**: Added a delay to chat card creation to wait for 3D dice animations to complete. This prevents the chat message from appearing before the dice have finished rolling, improving the visual flow of actions.
+
+### Fixed
+- **UI Contrast**: Improved the readability of the "Roll Attack" button in the Tactical Modifiers dialog by giving it a solid, dark background for better text contrast.
+
 ## [0.9.2-beta] - 2024-05-27
 
 ### Fixed
