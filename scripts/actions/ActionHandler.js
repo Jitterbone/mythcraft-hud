@@ -627,13 +627,23 @@ export class ActionHandler {
             sound: (roll && !muteDice) ? CONFIG.sounds.dice : null
         };
 
-        if (roll) {
-            chatData.rolls = [roll];
+        // Apply the roll mode. This will correctly set `blind: true` for blind rolls,
+        // preventing the message from being sent to the rolling player at all.
+        ChatMessage.applyRollMode(chatData, chatRollMode);
+
+        // Manually handle 3D dice since we are bypassing the default roll message type.
+        if (roll && game.dice3d) {
+            // A roll is public *only if* the roll mode is 'publicroll'.
+            // For all other modes (gmroll, blindroll, selfroll), we let DSN handle visibility based on the whisper targets.
+            const isPublic = chatRollMode === 'publicroll';
+
+            // Dice So Nice expects an array of User objects for whispers, not IDs. We must convert them.
+            const whisperUsers = (chatData.whisper || []).map(id => game.users.get(id)).filter(Boolean);
+
+            await game.dice3d.showForRoll(roll, game.user, isPublic, whisperUsers, chatData.blind);
         }
 
-        // The ChatMessage.create patch in main.js will now handle all dice rolls,
-        // including applying the roll mode and triggering Dice So Nice.
-        return ChatMessage.create(chatData, { rollMode: chatRollMode });
+        return ChatMessage.create(chatData);
     }
 
     static async createChatCard(actor, title, roll, label = "Result") {

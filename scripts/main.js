@@ -154,91 +154,109 @@ Hooks.once('init', () => {
         
         for (const d of dataArray) {
             // If this is an initiative roll, let Foundry handle it natively.
+            // This prevents conflicts with the combat tracker and avoids styling the roll,
+            // which is often preferred for clarity in the turn order.
             if (d.flags?.core?.initiativeRoll) {
                 continue;
             }
-
-            // Part 1: Style the message if it has a roll and is not already styled.
+            // Check if it's a roll and not already styled by our HUD
             if (d.rolls && d.rolls.length > 0 && !d.content?.includes("mythcraft-statblock")) {
+                
+                // Handle Roll instance or JSON data
                 let roll = d.rolls[0];
                 if (typeof roll === 'string') {
                     try { roll = JSON.parse(roll); } catch (e) {}
                 }
                 
-                if (roll) {
-                    const total = roll.total;
-                    const formula = roll.formula;
-                    const initialFlavor = d.flavor || roll.options?.flavor || "";
-                    let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
+                if (!roll) continue;
 
-                    let resultClass = "";
-                    let buttonHtml = "";
-                    if (roll.options?.isHeal === true) {
-                        buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
-                    } else if (roll.options?.isHeal === false) {
-                        buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
+                // Extract info
+                const total = roll.total;
+                const formula = roll.formula;
+                // Fallback to roll options flavor if message flavor is empty
+                const initialFlavor = d.flavor || roll.options?.flavor || "";
+
+                let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
+
+                let resultClass = "";
+                let buttonHtml = ""; // Action buttons container
+                if (roll.options?.isHeal === true) {
+                    buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
+                } else if (roll.options?.isHeal === false) {
+                    buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
+                }
+
+                // Crit logic
+                let terms = roll.terms;
+                if (!terms && roll.toJSON) terms = roll.terms; // Handle Roll instance
+                
+                if (terms) {
+                    const d20Term = terms.find(t => t.faces === 20);
+                    if (d20Term) {
+                        const result = d20Term.results.find(r => r.active) || d20Term.results[0];
+                        const d20 = (typeof result === 'object') ? result.result : result;
+                        
+                        if (d20 === 20) { 
+                            resultClass = "crit-success"; 
+                            resultLabel = "CRITICAL SUCCESS"; 
+                        } else if (d20 === 1) { 
+                            resultClass = "crit-fail"; 
+                            resultLabel = "CRITICAL FAILURE"; 
+                        }
                     }
+                }
 
-                    let terms = roll.terms;
-                    if (!terms && roll.toJSON) terms = roll.terms;
+                // Build new HTML
+                const isBlind = d.blind; // Capture original blind flag
+                const resultBlock = `
+                    <div class="roll-value">${total}</div>
+                    <div class="roll-formula">${formula}</div>
+                `;
+                const newContent = `
+                    <div class="mythcraft-statblock">
+                        <div class="card-header">${flavor}</div>
+                        <div class="roll-result ${resultClass}">
+                            <div class="roll-label">${resultLabel}</div>
+                            ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
+                        </div>
+                        ${buttonHtml}
+                    </div>`;
+                
+                d.content = newContent;
+                d.type = CONST.CHAT_MESSAGE_TYPES.OTHER; // Prevent default roll rendering
+                d.flavor = ""; // Clear flavor to avoid duplication
+                
+                const chatRollMode = options.rollMode || game.settings.get("core", "rollMode");
 
-                    if (terms) {
-                        const d20Term = terms.find(t => t.faces === 20);
-                        if (d20Term) {
-                            const result = d20Term.results.find(r => r.active) || d20Term.results[0];
-                            const d20 = (typeof result === 'object') ? result.result : result;
-                            if (d20 === 20) { 
-                                resultClass = "crit-success"; 
-                                resultLabel = "CRITICAL SUCCESS"; 
-                            } else if (d20 === 1) { 
-                                resultClass = "crit-fail"; 
-                                resultLabel = "CRITICAL FAILURE"; 
-                            }
+                // Manually apply the roll mode to determine whisper targets and blind status.
+                // This is crucial because we need this info *before* calling Dice So Nice.
+                ChatMessage.applyRollMode(d, chatRollMode);
+
+                if (!d.sound && d.rolls?.length > 0) d.sound = CONFIG.sounds.dice;
+
+                // Manually handle 3D dice since we are bypassing the default roll message type.
+                if (game.dice3d && d.rolls?.length > 0) {
+                    let rollInstance = d.rolls[0];
+                    // Ensure we have a Roll instance, not just data.
+                    if (!(rollInstance instanceof Roll)) {
+                        try {
+                            const rollData = typeof rollInstance === 'string' ? JSON.parse(rollInstance) : rollInstance;
+                            rollInstance = Roll.fromData(rollData);
+                        } catch (e) {
+                            console.warn("Mythcraft HUD | Could not reconstruct Roll object for Dice So Nice.", e);
+                            rollInstance = null;
                         }
                     }
 
-                    const isBlind = d.blind;
-                    const resultBlock = `<div class="roll-value">${total}</div><div class="roll-formula">${formula}</div>`;
-                    const newContent = `
-                        <div class="mythcraft-statblock">
-                            <div class="card-header">${flavor}</div>
-                            <div class="roll-result ${resultClass}">
-                                <div class="roll-label">${resultLabel}</div>
-                                ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
-                            </div>
-                            ${buttonHtml}
-                        </div>`;
-                    
-                    d.content = newContent;
-                    d.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
-                    d.flavor = "";
-                }
-            }
-            
-            // Part 2: Always handle 3D dice if rolls are present, unifying the logic.
-            if (game.dice3d && d.rolls?.length > 0) {
-                // This block now runs for rolls from the HUD and from other sources.
-                const chatRollMode = options.rollMode || game.settings.get("core", "rollMode");
-                ChatMessage.applyRollMode(d, chatRollMode); // Ensure whisper/blind are set
-
-                if (!d.sound) d.sound = CONFIG.sounds.dice;
-
-                let rollInstance = d.rolls[0];
-                if (!(rollInstance instanceof Roll)) {
-                    try {
-                        const rollData = typeof rollInstance === 'string' ? JSON.parse(rollInstance) : rollInstance;
-                        rollInstance = Roll.fromData(rollData);
-                    } catch (e) {
-                        console.warn("Mythcraft HUD | Could not reconstruct Roll object for Dice So Nice.", e);
-                        rollInstance = null;
+                    if (rollInstance) {
+                        const isPublicRoll = chatRollMode === 'publicroll';
+                        const whisperUsers = (d.whisper || []).map(id => game.users.get(id)).filter(Boolean);
+                        await game.dice3d.showForRoll(rollInstance, game.user, isPublicRoll, whisperUsers, d.blind);
                     }
                 }
 
-                if (rollInstance) {
-                    const isPublicRoll = chatRollMode === 'publicroll';
-                    const whisperUsers = (d.whisper || []).map(id => game.users.get(id)).filter(Boolean);
-                    await game.dice3d.showForRoll(rollInstance, game.user, isPublicRoll, whisperUsers, d.blind);
-                }
+                // After handling the roll, remove it to prevent Dice So Nice's default hooks from processing it again.
+                delete d.rolls;
             }
         }
         

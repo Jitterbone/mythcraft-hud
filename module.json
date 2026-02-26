@@ -22,12 +22,6 @@
           "minimum": "0.6.4"
         }
       }
-    ],
-    "recommends": [
-      {
-        "id": "dice-so-nice",
-        "type": "module"
-      }
     ]
   },
   "esmodules": [ "scripts/main.js" ],
