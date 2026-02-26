@@ -23,7 +23,7 @@
         }
       }
     ],
-    "requires": [
+    "recommends": [
       {
         "id": "dice-so-nice",
         "type": "module"

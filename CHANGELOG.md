@@ -10,10 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [0.9.2-hotfix-1] - 2024-05-28
 
 ### Fixed
+- **Dice So Nice! Visibility**: Corrected a critical issue where 3D dice rolls were not visible to other players for non-public rolls. The module now correctly provides the list of recipient `User` objects to Dice So Nice!, ensuring that private, blind, and GM rolls respect the user's roll mode settings.
 - **NPC AP Display**: The on-token AP display no longer appears for NPC actors, reducing clutter for the GM.
-
-### Changed
-- **Dice So Nice!**: Temporarily disabled the module's manual integration with Dice So Nice! to resolve a dice visibility issue. This will be revisited in a future update.
 
 ## [0.9.2-hotfix] - 2024-05-28
 

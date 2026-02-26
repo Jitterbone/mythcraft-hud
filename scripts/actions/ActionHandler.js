@@ -627,14 +627,13 @@ export class ActionHandler {
             sound: (roll && !muteDice) ? CONFIG.sounds.dice : null
         };
 
-        // Apply the roll mode. This will correctly set `blind: true` for blind rolls,
-        // preventing the message from being sent to the rolling player at all.
-        ChatMessage.applyRollMode(chatData, chatRollMode);
+        if (roll) {
+            chatData.rolls = [roll];
+        }
 
-        // The Dice So Nice! integration has been temporarily disabled as per your request.
-        // Because the module uses custom chat cards, this will prevent 3D dice from showing
-        // for these rolls until the integration is re-enabled.
-        return ChatMessage.create(chatData);
+        // The ChatMessage.create patch in main.js will now handle all dice rolls,
+        // including applying the roll mode and triggering Dice So Nice.
+        return ChatMessage.create(chatData, { rollMode: chatRollMode });
     }
 
     static async createChatCard(actor, title, roll, label = "Result") {

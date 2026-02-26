@@ -154,86 +154,91 @@ Hooks.once('init', () => {
         
         for (const d of dataArray) {
             // If this is an initiative roll, let Foundry handle it natively.
-            // This prevents conflicts with the combat tracker and avoids styling the roll,
-            // which is often preferred for clarity in the turn order.
             if (d.flags?.core?.initiativeRoll) {
                 continue;
             }
-            // Check if it's a roll and not already styled by our HUD
+
+            // Part 1: Style the message if it has a roll and is not already styled.
             if (d.rolls && d.rolls.length > 0 && !d.content?.includes("mythcraft-statblock")) {
-                
-                // Handle Roll instance or JSON data
                 let roll = d.rolls[0];
                 if (typeof roll === 'string') {
                     try { roll = JSON.parse(roll); } catch (e) {}
                 }
                 
-                if (!roll) continue;
+                if (roll) {
+                    const total = roll.total;
+                    const formula = roll.formula;
+                    const initialFlavor = d.flavor || roll.options?.flavor || "";
+                    let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
 
-                // Extract info
-                const total = roll.total;
-                const formula = roll.formula;
-                // Fallback to roll options flavor if message flavor is empty
-                const initialFlavor = d.flavor || roll.options?.flavor || "";
+                    let resultClass = "";
+                    let buttonHtml = "";
+                    if (roll.options?.isHeal === true) {
+                        buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
+                    } else if (roll.options?.isHeal === false) {
+                        buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
+                    }
 
-                let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
+                    let terms = roll.terms;
+                    if (!terms && roll.toJSON) terms = roll.terms;
 
-                let resultClass = "";
-                let buttonHtml = ""; // Action buttons container
-                if (roll.options?.isHeal === true) {
-                    buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
-                } else if (roll.options?.isHeal === false) {
-                    buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
-                }
-
-                // Crit logic
-                let terms = roll.terms;
-                if (!terms && roll.toJSON) terms = roll.terms; // Handle Roll instance
-                
-                if (terms) {
-                    const d20Term = terms.find(t => t.faces === 20);
-                    if (d20Term) {
-                        const result = d20Term.results.find(r => r.active) || d20Term.results[0];
-                        const d20 = (typeof result === 'object') ? result.result : result;
-                        
-                        if (d20 === 20) { 
-                            resultClass = "crit-success"; 
-                            resultLabel = "CRITICAL SUCCESS"; 
-                        } else if (d20 === 1) { 
-                            resultClass = "crit-fail"; 
-                            resultLabel = "CRITICAL FAILURE"; 
+                    if (terms) {
+                        const d20Term = terms.find(t => t.faces === 20);
+                        if (d20Term) {
+                            const result = d20Term.results.find(r => r.active) || d20Term.results[0];
+                            const d20 = (typeof result === 'object') ? result.result : result;
+                            if (d20 === 20) { 
+                                resultClass = "crit-success"; 
+                                resultLabel = "CRITICAL SUCCESS"; 
+                            } else if (d20 === 1) { 
+                                resultClass = "crit-fail"; 
+                                resultLabel = "CRITICAL FAILURE"; 
+                            }
                         }
+                    }
+
+                    const isBlind = d.blind;
+                    const resultBlock = `<div class="roll-value">${total}</div><div class="roll-formula">${formula}</div>`;
+                    const newContent = `
+                        <div class="mythcraft-statblock">
+                            <div class="card-header">${flavor}</div>
+                            <div class="roll-result ${resultClass}">
+                                <div class="roll-label">${resultLabel}</div>
+                                ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
+                            </div>
+                            ${buttonHtml}
+                        </div>`;
+                    
+                    d.content = newContent;
+                    d.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+                    d.flavor = "";
+                }
+            }
+            
+            // Part 2: Always handle 3D dice if rolls are present, unifying the logic.
+            if (game.dice3d && d.rolls?.length > 0) {
+                // This block now runs for rolls from the HUD and from other sources.
+                const chatRollMode = options.rollMode || game.settings.get("core", "rollMode");
+                ChatMessage.applyRollMode(d, chatRollMode); // Ensure whisper/blind are set
+
+                if (!d.sound) d.sound = CONFIG.sounds.dice;
+
+                let rollInstance = d.rolls[0];
+                if (!(rollInstance instanceof Roll)) {
+                    try {
+                        const rollData = typeof rollInstance === 'string' ? JSON.parse(rollInstance) : rollInstance;
+                        rollInstance = Roll.fromData(rollData);
+                    } catch (e) {
+                        console.warn("Mythcraft HUD | Could not reconstruct Roll object for Dice So Nice.", e);
+                        rollInstance = null;
                     }
                 }
 
-                // Build new HTML
-                const isBlind = d.blind; // Capture original blind flag
-                const resultBlock = `
-                    <div class="roll-value">${total}</div>
-                    <div class="roll-formula">${formula}</div>
-                `;
-                const newContent = `
-                    <div class="mythcraft-statblock">
-                        <div class="card-header">${flavor}</div>
-                        <div class="roll-result ${resultClass}">
-                            <div class="roll-label">${resultLabel}</div>
-                            ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
-                        </div>
-                        ${buttonHtml}
-                    </div>`;
-                
-                d.content = newContent;
-                d.type = CONST.CHAT_MESSAGE_TYPES.OTHER; // Prevent default roll rendering
-                d.flavor = ""; // Clear flavor to avoid duplication
-                
-                // Determine the roll mode from options to correctly handle dice visibility.
-                const chatRollMode = options.rollMode || game.settings.get("core", "rollMode");
-
-                if (!d.sound && d.rolls?.length > 0) d.sound = CONFIG.sounds.dice;
-
-                // The Dice So Nice! integration has been temporarily disabled as per your request.
-                // Because the module uses custom chat cards (by changing the message type to OTHER),
-                // this will prevent 3D dice from showing for these rolls until the integration is re-enabled.
+                if (rollInstance) {
+                    const isPublicRoll = chatRollMode === 'publicroll';
+                    const whisperUsers = (d.whisper || []).map(id => game.users.get(id)).filter(Boolean);
+                    await game.dice3d.showForRoll(rollInstance, game.user, isPublicRoll, whisperUsers, d.blind);
+                }
             }
         }
         
@@ -398,7 +403,9 @@ Hooks.once('ready', () => {
             }
         }
         // Always update AP display for the token that changed state
-        updateTokenAP(token);
+        // The on-token AP display has been temporarily disabled to investigate a potential
+        // conflict causing issues with token movement and rotation.
+        // updateTokenAP(token);
     });
 
     // Manually scrub GM-only data from chat cards for players
@@ -425,21 +432,26 @@ Hooks.once('ready', () => {
 
     Hooks.on('updateActor', (actor, changes, options, userId) => {
         refreshHUDOnUpdate(actor);
+        /*
+        // The on-token AP display has been temporarily disabled to investigate a potential
+        // conflict causing issues with token movement and rotation.
         if (changes.system?.ap) {
             actor.getActiveTokens().forEach(t => {
                 if (t.controlled) updateTokenAP(t);
             });
         }
+        */
     });
     Hooks.on('updateItem', (item, changes, options, userId) => refreshHUDOnUpdate(item));
     Hooks.on('createItem', (item, options, userId) => refreshHUDOnUpdate(item));
     Hooks.on('deleteItem', (item, options, userId) => refreshHUDOnUpdate(item));
 
     // --- COMBAT & AP HOOKS ---
-
     // Update AP when turn changes
     Hooks.on('updateCombat', async (combat, updateData, options, userId) => {
-        canvas.tokens.controlled.forEach(t => updateTokenAP(t));
+        // The on-token AP display has been temporarily disabled to investigate a potential
+        // conflict causing issues with token movement and rotation.
+        // canvas.tokens.controlled.forEach(t => updateTokenAP(t));
         
         // Reactive AP Logic (GM Only)
         if (game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
@@ -477,11 +489,16 @@ Hooks.once('ready', () => {
     });
 
     Hooks.on('deleteCombat', () => {
-        canvas.tokens.controlled.forEach(t => updateTokenAP(t));
+        // The on-token AP display has been temporarily disabled to investigate a potential
+        // conflict causing issues with token movement and rotation.
+        // canvas.tokens.controlled.forEach(t => updateTokenAP(t));
     });
 });
 
 // --- AP DISPLAY LOGIC ---
+// NOTE: The on-token AP display feature has been temporarily disabled to investigate a
+// potential conflict causing issues with token movement and rotation. The `updateTokenAP`
+// function and its calls in the hooks above have been commented out.
 const apTextMap = new Map();
 
 function updateTokenAP(token) {
