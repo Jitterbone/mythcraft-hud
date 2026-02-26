@@ -6,6 +6,12 @@ export class ActionHandler {
     
     // Helper: Calculate AP Cost for weapons/spells
     static calculateAPC(item, actor) {
+        // Prioritize a simple, direct AP cost if it exists.
+        const directCost = getProperty(item, "system.apc");
+        if (directCost !== undefined && !isNaN(directCost)) {
+            return Number(directCost);
+        }
+
         let formula = item.system.apcFormula;
         if (!formula) return 3; // Default fallback
         
@@ -633,14 +639,16 @@ export class ActionHandler {
 
         // Manually handle 3D dice since we are bypassing the default roll message type.
         if (roll && game.dice3d) {
-            // A roll is public *only if* the roll mode is 'publicroll'.
-            // For all other modes (gmroll, blindroll, selfroll), we let DSN handle visibility based on the whisper targets.
             const isPublic = chatRollMode === 'publicroll';
-
-            // Dice So Nice expects an array of User objects for whispers, not IDs. We must convert them.
-            const whisperUsers = (chatData.whisper || []).map(id => game.users.get(id)).filter(Boolean);
-
-            await game.dice3d.showForRoll(roll, game.user, isPublic, whisperUsers, chatData.blind);
+            // For public rolls, we only need to tell DSN to synchronize.
+            if (isPublic) {
+                await game.dice3d.showForRoll(roll, game.user, true);
+            } 
+            // For private rolls, we provide the specific whisper targets.
+            else {
+                const whisperUsers = (chatData.whisper || []).map(id => game.users.get(id)).filter(Boolean);
+                await game.dice3d.showForRoll(roll, game.user, false, whisperUsers, chatData.blind);
+            }
         }
 
         return ChatMessage.create(chatData);

@@ -250,8 +250,12 @@ Hooks.once('init', () => {
 
                     if (rollInstance) {
                         const isPublicRoll = chatRollMode === 'publicroll';
-                        const whisperUsers = (d.whisper || []).map(id => game.users.get(id)).filter(Boolean);
-                        await game.dice3d.showForRoll(rollInstance, game.user, isPublicRoll, whisperUsers, d.blind);
+                        if (isPublicRoll) {
+                            await game.dice3d.showForRoll(rollInstance, game.user, true);
+                        } else {
+                            const whisperUsers = (d.whisper || []).map(id => game.users.get(id)).filter(Boolean);
+                            await game.dice3d.showForRoll(rollInstance, game.user, false, whisperUsers, d.blind);
+                        }
                     }
                 }
 
