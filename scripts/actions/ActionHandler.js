@@ -7,7 +7,7 @@ export class ActionHandler {
     // Helper: Calculate AP Cost for weapons/spells
     static calculateAPC(item, actor) {
         // Prioritize a simple, direct AP cost if it exists.
-        const directCost = getProperty(item, "system.apc");
+        const directCost = foundry.utils.getProperty(item, "system.apc");
         if (directCost !== undefined && !isNaN(directCost)) {
             return Number(directCost);
         }
@@ -194,8 +194,6 @@ export class ActionHandler {
         const item = actor.items.get(weaponId);
         if (!item) return ui.notifications.warn("Weapon not found!");
         
-        console.log(`Mythcraft HUD: Configuring attack with - ${item.name}`);
-        
         // Get weapon stats
         const attrKey = (item.system.attr || "str").toLowerCase();
         const attrVal = this.getAttributeValue(actor, attrKey);
@@ -224,9 +222,9 @@ export class ActionHandler {
         const item = actor.items.get(spellId);
         if (!item) return ui.notifications.warn("Spell not found!");
 
-        const spCost = getProperty(item, "system.spc") || 0;
+        const spCost = foundry.utils.getProperty(item, "system.spc") || 0;
         const apCost = this.calculateAPC(item, actor);
-        const currentSP = getProperty(actor, "system.sp.value") || 0;
+        const currentSP = foundry.utils.getProperty(actor, "system.sp.value") || 0;
         const currentAP = actor.system.ap?.value || 0;
 
         // Check resource availability
@@ -238,8 +236,6 @@ export class ActionHandler {
             return ui.notifications.error(`Not enough AP! Need ${apCost}, have ${currentAP}.`);
         }
 
-        console.log(`Mythcraft HUD: Casting spell - ${item.name}`);
-        
         // Auto-deduct resources
         if (spCost > 0) {
             const newSP = Math.max(0, currentSP - spCost);
@@ -262,7 +258,6 @@ export class ActionHandler {
 
         // NPC Fast-Cast: Bypass resource subtraction
         // Allows GM to roll spells rapidly without tracking monster resources manually
-        console.log(`Mythcraft HUD: NPC casting spell (Fast-Cast) - ${item.name}`);
         await this.executeUnifiedAction(spellId, actor);
     }
 
@@ -272,7 +267,6 @@ export class ActionHandler {
         const item = actor.items.get(featureId);
         if (!item) return ui.notifications.warn("Feature not found!");
 
-        console.log(`Mythcraft HUD: Using feature - ${item.name}`);
         await this.executeUnifiedAction(featureId, actor);
     }
 
@@ -677,7 +671,6 @@ export class ActionHandler {
         if (!skill) return ui.notifications.warn("Skill not found!");
 
         const skillName = skill.label || (skillId.charAt(0).toUpperCase() + skillId.slice(1));
-        console.log(`Mythcraft HUD: Rolling ${skillName}`);
 
         // Get the numeric bonus value from the skill object
         const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
@@ -705,7 +698,6 @@ export class ActionHandler {
         if (save === undefined) return ui.notifications.warn("Save not found!");
 
         const saveName = saveId.charAt(0).toUpperCase() + saveId.slice(1);
-        console.log(`Mythcraft HUD: Rolling ${saveName} save`);
 
         // Construct roll formula: 1d20 + save bonus
         const formula = `1d20 + ${save}`;
@@ -728,7 +720,6 @@ export class ActionHandler {
     static async rollAttribute(attrId, actor) {
         const attr = this.getAttributeValue(actor, attrId);
         const attrName = (attrId || '').toUpperCase();
-        console.log(`Mythcraft HUD: Rolling ${attrName} check`);
 
         // Construct roll formula: 1d20 + attribute value
         const formula = `1d20 + ${attr}`;
@@ -764,8 +755,8 @@ export class ActionHandler {
         const actor = await fromUuid(actorUuid);
         if (!actor) return ui.notifications.warn("Actor not found for refund.");
         
-        const currentSP = getProperty(actor, "system.sp.value") || 0;
-        const maxSP = getProperty(actor, "system.sp.max") || 0;
+        const currentSP = foundry.utils.getProperty(actor, "system.sp.value") || 0;
+        const maxSP = foundry.utils.getProperty(actor, "system.sp.max") || 0;
         
         const newSP = Math.min(maxSP, currentSP + spCost);
         await actor.update({ "system.sp.value": newSP });

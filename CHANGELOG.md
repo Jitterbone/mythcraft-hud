@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.5-beta] - 2026-03-09
+
+### Fixed
+- Fixed a bug that could cause the error `TypeError: Cannot read properties of undefined (reading 'actor')` during an `updateActor` hook, which was related to conflicts with other modules during chat message creation.
+- Fixed a compatibility error with Foundry VTT v12+ (`getProperty is not a function`) that occurred when clicking on tokens.
+
+### Changed
+- **Performance:** Significantly improved performance and stability by removing fragile monkey-patching of core Foundry VTT functions (`ChatMessage.create`, `Actor.prototype.roll*`). The module now uses modern, standard hooks for chat message processing, reducing the risk of module conflicts.
+- Removed verbose console logs to reduce console bloat and potential performance impact.
+
 ## [0.9.4-beta] - 2024-05-29
 
 ### Changed

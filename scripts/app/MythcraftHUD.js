@@ -678,8 +678,6 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             return;
         }
 
-        console.log(`Mythcraft HUD | Opening ${type} menu with template: ${templatePath}`);
-
         const appRect = this.element.getBoundingClientRect();
         const btnRect = btn.getBoundingClientRect();
 
@@ -717,7 +715,6 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         if (macroId) {
             const macro = game.macros.get(macroId);
             if (macro) {
-                console.log(`Mythcraft HUD | Executing macro: ${macro.name}`);
                 await macro.execute();
             }
         }
