@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6-beta-hotfix] - 2024-06-06
+
+### Fixed
+- **UI Formatting**: Adjusted the background colors and opacity for the Token HUD conditions grid and tooltip to match Foundry VTT's default translucent style.
+
 ## [0.9.6-beta] - 2024-06-05
 
 ### Fixed

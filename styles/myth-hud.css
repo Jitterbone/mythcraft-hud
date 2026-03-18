@@ -1867,8 +1867,9 @@ label.tac-label-td { color: #e74c3c !important; }
     width: auto;
     max-height: none;
     overflow-y: visible;
-    padding: 2px;
-    background: transparent !important;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 4px;
+    padding: 4px;
 }
 
 #token-hud .effect-control {
@@ -1897,7 +1898,7 @@ label.tac-label-td { color: #e74c3c !important; }
     top: 80px;
     right: 16px;
     width: 320px;
-    background: rgba(20, 20, 20, 0.98);
+    background: rgba(0, 0, 0, 0.8);
     border: 1px solid #d3c4a3;
     border-radius: 6px;
     padding: 0;
