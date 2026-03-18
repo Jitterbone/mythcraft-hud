@@ -1,0 +1,29 @@
+<div class="hud-list-container">
+    {{#if effects.length}}
+        {{#each effects}}
+        <div class="hud-card-layout">
+            <div class="hud-action-btn" style="cursor:default;">
+                <img class="hud-item-icon" src="{{this.img}}" title="{{this.name}}"/>
+                <div class="hud-text-container">
+                    <div class="hud-row-top">
+                        <span class="hud-item-name">{{this.name}}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hud-control-stack">
+                <button class="info-toggle-btn" data-target="desc-{{this.id}}">
+                    <i class="fas fa-info"></i>
+                </button>
+                <button class="remove-condition-btn" data-effect-id="{{this.id}}" title="Remove Condition">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        </div>
+        <div id="desc-{{this.id}}" class="hud-item-description" style="display:none;">
+            {{{this.description}}}
+        </div>
+        {{/each}}
+    {{else}}
+        <div class="hud-empty-state">No Active Conditions</div>
+    {{/if}}
+</div>

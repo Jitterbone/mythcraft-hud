@@ -1,5 +1,6 @@
 import { DataScraper } from '../data/DataScraper.js';
 import { ActionHandler } from '../actions/ActionHandler.js';
+import { mcConditions as MythcraftConditions } from '../data/ConditionData.js';
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -66,7 +67,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         rest: "modules/mythcraft-hud/templates/list-rest.hbs",
         saves: "modules/mythcraft-hud/templates/list-saves.hbs",
         skills: "modules/mythcraft-hud/templates/list-skills.hbs",
-        weapons: "modules/mythcraft-hud/templates/list-weapons.hbs"
+        weapons: "modules/mythcraft-hud/templates/list-weapons.hbs",
+        conditions: "modules/mythcraft-hud/templates/list-conditions.hbs"
     };
 
     async render(options) {
@@ -318,6 +320,19 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             skullTally: skullTally
         };
 
+        // Get active effects
+        const effects = actor.effects.map(e => {
+            const statusId = [...(e.statuses ?? [])][0] ?? e.flags?.core?.statusId;
+            const condition = MythcraftConditions.find(c => c.id === statusId);
+            return {
+                id: e.id,
+                conditionId: statusId,
+                name: e.name,
+                img: e.img ?? e.icon,
+                description: condition?.description ?? e.description ?? ""
+            };
+        });
+
         // Attribute & Defense Pairs
         const attributes = system.attributes || {};
         const defenses = system.defenses || {};
@@ -384,7 +399,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             isGM: game.user.isGM,
             gmCharacters: gmCharacters,
             restFeatures: restData,
-            death: deathData
+            death: deathData,
+            effects: effects
         };
 
         return this.currentData;
@@ -528,6 +544,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         expansionArea.on('click', '.weapon-btn', this._onWeaponClick.bind(this));
         expansionArea.on('click', '.mod-toggle-btn', this._onModifierClick.bind(this));
         expansionArea.on('click', '.spell-btn', this._onSpellClick.bind(this));
+        expansionArea.on('click', '.remove-condition-btn', this._onRemoveConditionClick.bind(this));
         expansionArea.on('click', '.feature-btn', this._onFeatureClick.bind(this));
         expansionArea.on('click', '.hud-save-btn', this._onSaveRoll.bind(this));
         expansionArea.on('click', '.info-toggle-btn', this._onInfoToggle.bind(this));
@@ -694,7 +711,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
                 zIndex: 200
             });
 
-            const listHtml = await renderTemplate(templatePath, this.currentData);
+            const listHtml = await foundry.applications.handlebars.renderTemplate(templatePath, this.currentData);
             // The rest menu is short and has tooltips that need to escape. Don't wrap it in a scroller.
             if (type === 'rest') {
                 expansionArea.html(listHtml);
@@ -720,7 +737,32 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         }
     }
 
-    async _onWeaponClick(event) {
+    _onConditionClick(event) {
+        event.preventDefault();
+        event.stopPropagation(); // Prevent other card clicks from firing
+
+        const target = $(event.currentTarget);
+        let desc = target.find('.condition-desc, .card-body, .hud-item-description');
+        if (desc.length === 0) {
+            desc = target.next('.condition-desc');
+        }
+        desc.slideToggle(200);
+    }
+        
+            async _onRemoveConditionClick(event) {
+                event.preventDefault();
+                event.stopPropagation();
+                const effectId = event.currentTarget.dataset.effectId;
+                const actor = this.targetActor;
+                if (!actor) return;
+                const effect = actor.effects.get(effectId);
+                if (effect) {
+                    await effect.delete();
+                    this.render(); // Re-render the HUD to show the change
+                }
+            }
+        
+            async _onWeaponClick(event) {
         event.preventDefault();
         const actor = this.targetActor;
         if (!actor) return;
@@ -766,7 +808,15 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         event.preventDefault();
         event.stopPropagation();
         const targetId = event.currentTarget.dataset.target;
-        $(this.element).find(`#${targetId}`).slideToggle(200);
+        if (targetId) {
+            $(this.element).find(`#${targetId}`).slideToggle(200);
+        } else {
+            // Bulletproof fallback: Find the parent card and toggle its adjacent description
+            const card = $(event.currentTarget).closest('.clickable-card, .hud-card-layout, .condition-card-outer');
+            let desc = card.find('.condition-desc, .weapon-desc, .card-body');
+            if (desc.length === 0) desc = card.next('.condition-desc, .weapon-desc, .card-body');
+            desc.slideToggle(200);
+        }
     }
 
     _onCardClick(event) {

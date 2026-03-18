@@ -1,10 +1,29 @@
 import { MythcraftHUD } from './app/MythcraftHUD.js';
 import { ActionHandler } from './actions/ActionHandler.js';
+import { mcConditions as MythcraftConditions } from './data/ConditionData.js';
+import { ConditionHandler } from './actions/ConditionHandler.js';
+import { conditionTooltip } from './app/ConditionTooltip.js';
 
 let hudInstance;
 
-Hooks.once('init', () => {
-    Handlebars.registerHelper('capitalize', function(str) {
+Hooks.on("init", () => {
+    // Wipe whatever the system defines
+    CONFIG.statusEffects = [];
+    CONFIG.specialStatusEffects = {};
+
+    // Replace entirely with Mythcraft-HUD conditions
+    CONFIG.statusEffects = MythcraftConditions.map(c => ({
+        id: c.id,
+        name: c.label,
+        label: c.label,
+        description: c.description,
+        img: c.img,
+        statuses: [c.id],
+        changes: c.changes,
+        flags: c.flags
+    }));
+
+    Handlebars.registerHelper('capitalize', function (str) {
         if (typeof str !== 'string') return '';
         return str.charAt(0).toUpperCase() + str.slice(1);
     });
@@ -52,7 +71,7 @@ Hooks.once('init', () => {
     `;
     document.head.appendChild(style);
 
-   // Template override for chat messages
+    // Template override for chat messages
     // Helper function to determine the label and flavor for a roll.
     const _getRollContext = (flavor, formula, rollOptions = {}, roll = {}) => {
         let resultLabel = "SYSTEM ROLL";
@@ -145,7 +164,7 @@ Hooks.once('init', () => {
         if (d.flags?.core?.initiativeRoll) {
             return;
         }
-        
+
         // Process messages that have rolls and are not already styled.
         if (d.rolls && d.rolls.length > 0 && !d.content?.includes("mythcraft-statblock")) {
             let roll = d.rolls[0];
@@ -153,7 +172,7 @@ Hooks.once('init', () => {
             // Ensure we have a valid Roll instance.
             if (typeof roll === 'string') {
                 try { roll = Roll.fromData(JSON.parse(roll)); } catch (e) {
-                    try { roll = Roll.fromData(roll); } catch (e2) { 
+                    try { roll = Roll.fromData(roll); } catch (e2) {
                         console.warn("Mythcraft HUD | Could not parse roll data from string.", e2);
                         return;
                     }
@@ -161,45 +180,45 @@ Hooks.once('init', () => {
             } else if (!(roll instanceof Roll)) {
                 try {
                     roll = Roll.fromData(roll);
-                } catch(e) {
+                } catch (e) {
                     console.warn("Mythcraft HUD | Could not create Roll instance from data.", e);
                     return;
                 }
             }
-            
+
             if (!roll) return;
-            
+
             const total = roll.total;
             const formula = roll.formula;
             const initialFlavor = d.flavor || roll.options?.flavor || "";
             let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
-            
+
             let resultClass = "";
             let buttonHtml = "";
-            
+
             // Add Apply Damage/Healing buttons based on roll context.
             if (roll.options?.isHeal === true) {
                 buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
             } else if (roll.options?.isHeal === false) {
                 buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
             }
-            
+
             // Determine if the roll is a critical success or failure.
             const d20Term = roll.terms.find(t => t.faces === 20);
             if (d20Term) {
                 const result = d20Term.results.find(r => r.active) || d20Term.results[0];
                 if (result) {
                     const d20 = result.result;
-                    if (d20 === 20) { 
-                        resultClass = "crit-success"; 
-                        resultLabel = "CRITICAL SUCCESS"; 
-                    } else if (d20 === 1) { 
-                        resultClass = "crit-fail"; 
-                        resultLabel = "CRITICAL FAILURE"; 
+                    if (d20 === 20) {
+                        resultClass = "crit-success";
+                        resultLabel = "CRITICAL SUCCESS";
+                    } else if (d20 === 1) {
+                        resultClass = "crit-fail";
+                        resultLabel = "CRITICAL FAILURE";
                     }
                 }
             }
-    
+
             // Prepare the custom HTML for the chat card.
             const isBlind = d.blind;
             const resultBlock = `
@@ -215,19 +234,19 @@ Hooks.once('init', () => {
                     </div>
                     ${buttonHtml}
                 </div>`;
-            
+
             // Prepare the data payload to update the message.
             const updateData = {
                 content: newContent,
                 type: CONST.CHAT_MESSAGE_TYPES.OTHER, // Prevents default roll rendering.
                 flavor: "" // Clear flavor to avoid duplication.
             };
-    
+
             const chatRollMode = message.rollMode || game.settings.get("core", "rollMode");
             ChatMessage.applyRollMode(updateData, chatRollMode);
-    
+
             if (!d.sound && d.rolls?.length > 0) updateData.sound = CONFIG.sounds.dice;
-    
+
             // Manually trigger 3D dice if the module is active.
             if (game.dice3d && d.rolls?.length > 0) {
                 const isPublicRoll = chatRollMode === 'publicroll';
@@ -238,11 +257,11 @@ Hooks.once('init', () => {
                     await game.dice3d.showForRoll(roll, game.user, false, whisperUsers, updateData.blind || d.blind);
                 }
             }
-            
+
             // Clear the rolls from the message data to prevent other modules (like Dice So Nice)
             // from processing the roll a second time.
             updateData.rolls = [];
-    
+
             // Update the message source with our new data.
             message.updateSource(updateData);
         }
@@ -254,15 +273,54 @@ Hooks.once('init', () => {
     // By removing it and relying on the `ChatMessage.create` patch, we unify the logic.
 });
 
-Hooks.once('ready', () => {
+Hooks.on("setup", () => {
+    CONFIG.statusEffects = MythcraftConditions.map(c => ({
+        id: c.id,
+        name: c.label,
+        label: c.label,
+        description: c.description,
+        img: c.img,
+        statuses: [c.id],
+        changes: c.changes,
+        flags: c.flags
+    }));
+});
+
+Hooks.once("ready", async () => {
+    CONFIG.statusEffects = MythcraftConditions.map(c => ({
+        id: c.id,
+        name: c.label,
+        label: c.label,
+        description: c.description,
+        img: c.img,
+        statuses: [c.id],
+        changes: c.changes,
+        flags: c.flags
+    }));
+
+    const validIds = new Set(MythcraftConditions.map(c => c.id));
+
+    for (const scene of game.scenes) {
+        for (const tokenDoc of scene.tokens) {
+            const badEffects = tokenDoc.actor?.effects.filter(e =>
+                [...(e.statuses ?? [])].some(s => !validIds.has(s))
+            ).map(e => e.id) ?? [];
+
+            if (badEffects.length > 0) {
+                await tokenDoc.actor.deleteEmbeddedDocuments("ActiveEffect", badEffects);
+            }
+        }
+    }
+
+    new ConditionHandler();
     hudInstance = new MythcraftHUD();
     game.mythHUD = hudInstance; // Expose globally for settings callbacks
-    
+
     // Apply HUD Scale
     const currentScale = game.settings.get('mythcraft-hud', 'hudScale');
     const scaleMap = { "small": 0.8, "medium": 1.0, "large": 1.2, "xlarge": 1.4 };
     document.documentElement.style.setProperty('--myth-hud-scale', scaleMap[currentScale] || 1.0);
-    
+
     // Persistent Open Logic
     if (game.user.character) {
         // Player with assigned character
@@ -283,7 +341,7 @@ Hooks.once('ready', () => {
     // Removing them improves performance and reduces the risk of conflicts with the game system or other modules.
 
     // Prompt 3: Unified Interaction - Handle click on parent .hud-action-button
-    $(document).on('click', '.hud-action-button', function(e) {
+    $(document).on('click', '.hud-action-button', function (e) {
         e.preventDefault();
         e.stopPropagation();
         const link = $(this).find('.inline-roll');
@@ -298,9 +356,9 @@ Hooks.once('ready', () => {
         const btn = ev.currentTarget;
         const actorUuid = btn.dataset.actorUuid;
         const spCost = parseInt(btn.dataset.spCost);
-        
+
         await ActionHandler.refundSP(actorUuid, spCost);
-        
+
         // Visual feedback
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-check"></i> Refunded';
@@ -308,35 +366,35 @@ Hooks.once('ready', () => {
     });
 
     // Listeners for Apply Buttons (Damage/Healing)
-    $(document).on('click', '.apply-damage-btn', async function(ev) {
+    $(document).on('click', '.apply-damage-btn', async function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
         const val = parseInt(this.dataset.value);
         const targets = canvas.tokens.controlled;
         if (!targets.length) return ui.notifications.warn("No tokens selected.");
-        
+
         for (const t of targets) {
             const actor = t.actor;
             if (!actor) continue;
             const hp = actor.system.hp.value;
-            await actor.update({"system.hp.value": hp - val});
+            await actor.update({ "system.hp.value": hp - val });
             ui.notifications.info(`Applied ${val} damage to ${actor.name}`);
         }
     });
 
-    $(document).on('click', '.apply-healing-btn', async function(ev) {
+    $(document).on('click', '.apply-healing-btn', async function (ev) {
         ev.preventDefault();
         ev.stopPropagation();
         const val = parseInt(this.dataset.value);
         const targets = canvas.tokens.controlled;
         if (!targets.length) return ui.notifications.warn("No tokens selected.");
-        
+
         for (const t of targets) {
             const actor = t.actor;
             if (!actor) continue;
             const hp = actor.system.hp.value;
             const max = actor.system.hp.max;
-            await actor.update({"system.hp.value": Math.min(max, hp + val)});
+            await actor.update({ "system.hp.value": Math.min(max, hp + val) });
             ui.notifications.info(`Applied ${val} healing to ${actor.name}`);
         }
     });
@@ -386,7 +444,7 @@ Hooks.once('ready', () => {
         if (!targetActor) return;
 
         const isRelevant = (document.documentName === "Actor" && document.id === targetActor.id) ||
-                           (document.documentName === "Item" && document.actor?.id === targetActor.id);
+            (document.documentName === "Item" && document.actor?.id === targetActor.id);
 
         if (isRelevant) {
             hudInstance.render();
@@ -419,24 +477,24 @@ Hooks.once('ready', () => {
             if (!combatant || !combatant.actor) return;
 
             const actor = combatant.actor;
-            
+
             let level = 1;
             if (actor.system.level?.value !== undefined) level = Number(actor.system.level.value);
             else if (actor.system.level !== undefined) level = Number(actor.system.level);
-            
+
             if (actor.type === 'npc') {
-                 const cr = Number(actor.system.cr);
-                 if (!isNaN(cr)) level = cr;
+                const cr = Number(actor.system.cr);
+                if (!isNaN(cr)) level = cr;
             }
             if (isNaN(level)) level = 1;
 
             const maxAP = actor.system.ap?.max || 0;
             const currentAP = actor.system.ap?.value || 0;
-            
+
             const reactiveCap = Math.ceil(level / 2) + 1;
-            
+
             let newAP = maxAP;
-            
+
             if (combat.round > 1) {
                 const carryover = Math.min(currentAP, reactiveCap);
                 newAP += carryover;
@@ -484,7 +542,7 @@ function updateTokenAP(token) {
 
     const isTurn = combat.combatant?.id === combatant.id;
     const ap = token.actor.system.ap?.value ?? 0;
-    
+
     // Blue if turn, Yellow if not
     const color = isTurn ? 0x3498db : 0xf1c40f;
 

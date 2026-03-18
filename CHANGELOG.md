@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.6-beta] - 2024-06-05
+
+### Fixed
+- **UI Formatting**: Fixed the layout and CSS of the "Conditions" menu button so it dynamically resizes for text without breaking the rigid hotbar sizing constraints.
+- **Condition Application**: Fixed a race condition where the "Bloodied" condition would fail to auto-apply by shifting the evaluation to the much safer `updateActor` hook.
+
 ## [0.9.5-beta] - 2026-03-09
 
 ### Fixed

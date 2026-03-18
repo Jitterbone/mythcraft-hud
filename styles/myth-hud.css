@@ -156,6 +156,23 @@
     border-left: none;
     border-bottom: 1px solid #3a7a7f;
 }
+
+.hud-control-stack .remove-condition-btn {
+    width: 100%;
+    flex: 1;
+    background: rgba(231, 76, 60, 0.1);
+    border: none;
+    color: #e74c3c;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+.hud-control-stack .remove-condition-btn:hover {
+    background: #e74c3c;
+    color: #fff;
+}
 /* ============================================
    MYTHCRAFT HUD - PERSISTENT BOTTOM-LEFT STYLE
    ============================================ */
@@ -555,9 +572,10 @@
    =============================== */
 
 .hud-menu-btn {
-    width: 32px; /* Small square */
+    min-width: 32px; /* Allow expansion for text buttons */
+    width: auto;
     height: 32px; /* Small square */
-    padding: 2px;
+    padding: 2px 8px; /* Add horizontal padding for text */
     border: 2px solid #3a7a7f;
     background: linear-gradient(135deg, #0f2a2b 0%, #1a4345 100%);
     border-radius: 4px;
@@ -567,6 +585,8 @@
     align-items: center;
     justify-content: center;
     font-size: 16px;
+    white-space: nowrap; /* Prevent text wrapping */
+    gap: 4px; /* Spacing if both an icon and text are used */
     transition: all 0.2s ease;
 }
 
@@ -583,6 +603,18 @@
 .hud-menu-btn i {
     display: block;
     pointer-events: none;
+}
+
+/* Specifically style the conditions button to ensure text looks professional */
+.hud-menu-btn[data-type="conditions"] {
+    font-size: 13px;
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.hud-menu-btn[data-type="conditions"] i {
+    font-size: 16px; /* Ensure icon stays standard size if present alongside text */
 }
 
 /* ============================================
@@ -1006,6 +1038,16 @@
 }
 
 .hud-item-description {
+    padding: 8px;
+    border-top: 1px dashed #3a7a7f;
+    background: rgba(0, 0, 0, 0.2);
+    font-size: 0.9em;
+    color: #ddd;
+    line-height: 1.4;
+}
+
+.condition-desc {
+    display: none;
     padding: 8px;
     border-top: 1px dashed #3a7a7f;
     background: rgba(0, 0, 0, 0.2);
@@ -1812,3 +1854,120 @@ label.tac-label-td { color: #e74c3c !important; }
 /* Tooltip scrollbar */
 .hud-feature-tooltip .tooltip-body::-webkit-scrollbar { width: 4px; }
 .hud-feature-tooltip .tooltip-body::-webkit-scrollbar-thumb { background: #d3c4a3; border-radius: 2px; }
+
+/* ============================================
+   TOKEN HUD CONDITION GRID & TOOLTIP
+   ============================================ */
+
+/* 1. Token HUD Grid Layout */
+#token-hud .status-effects {
+    display: grid;
+    grid-template-columns: repeat(6, 24px);
+    gap: 3px;
+    width: auto;
+    max-height: none;
+    overflow-y: visible;
+    padding: 2px;
+    background: transparent !important;
+}
+
+#token-hud .effect-control {
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0 !important;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+    flex: none;
+}
+
+#token-hud .effect-control img {
+    width: 100%;
+    height: 100%;
+}
+
+/* 2. Active Condition Highlight */
+#token-hud .effect-control.mythcraft-active {
+    border: 1px solid #FEEBB3;
+    box-shadow: 0 0 5px rgba(254, 235, 179, 0.6);
+}
+
+/* 3. Condition Tooltip */
+#mythcraft-condition-tooltip {
+    position: fixed;
+    top: 80px;
+    right: 16px;
+    width: 320px;
+    background: rgba(20, 20, 20, 0.98);
+    border: 1px solid #d3c4a3;
+    border-radius: 6px;
+    padding: 0;
+    z-index: 300; /* Above most UI elements */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+    pointer-events: none; /* Tooltip should not be interactive */
+    transition: opacity 0.2s ease;
+}
+
+#mythcraft-condition-tooltip.hidden {
+    opacity: 0;
+    visibility: hidden;
+}
+
+#mythcraft-condition-tooltip .tooltip-header {
+    background: rgba(211, 196, 163, 0.1);
+    padding: 8px 12px;
+    border-bottom: 1px solid #d3c4a3;
+    font-weight: bold;
+    color: #FEEBB3;
+    font-size: 1.1em;
+    font-family: "Signika", sans-serif;
+}
+
+#mythcraft-condition-tooltip .tooltip-body {
+    padding: 12px;
+    font-size: 0.95em;
+    color: #ddd;
+    line-height: 1.5;
+    max-height: 70vh;
+    overflow-y: auto;
+    font-family: "Signika", sans-serif;
+}
+
+/* Tooltip scrollbar */
+#mythcraft-condition-tooltip .tooltip-body::-webkit-scrollbar {
+    width: 4px;
+}
+
+#mythcraft-condition-tooltip .tooltip-body::-webkit-scrollbar-thumb {
+    background: #d3c4a3;
+    border-radius: 2px;
+}
+
+/* ============================================
+   ACTIVE EFFECT CONFIG & ASSIGNMENT OVERRIDES
+   ============================================ */
+
+/* Active Effect config window background */ 
+.app.active-effect-config .window-content, .app.active-effect-sheet .window-content { background: rgba(15, 15, 20, 0.97); color: #e8e8e8; }
+
+/* Active Effect list/assignment window */ 
+.app.active-effect-config form, .app.active-effect-sheet form { background: rgba(15, 15, 20, 0.97); }
+
+/* Individual effect rows in the list */ 
+.active-effects-list .effect, .effects-list .effect { background: rgba(30, 30, 40, 0.9); border-bottom: 1px solid rgba(255, 255, 255, 0.08); color: #e8e8e8; }
+
+.active-effects-list .effect:hover, .effects-list .effect:hover { background: rgba(50, 50, 70, 0.95); }
+
+/* Input fields inside the window */ 
+.app.active-effect-config input, .app.active-effect-config select { background: rgba(40, 40, 55, 0.95); color: #e8e8e8; border: 1px solid rgba(255, 255, 255, 0.15); }
+
+/* Window header */ 
+.app.active-effect-config .window-header { background: rgba(10, 10, 15, 0.98); color: #e8e8e8; }
+
+/* Labels */ 
+.app.active-effect-config label { color: #c8c8c8; }
+
+/* Hide default token condition icons */
+.token .status-effects,
+canvas #controls .status-effects {
+  display: none !important;
+}
