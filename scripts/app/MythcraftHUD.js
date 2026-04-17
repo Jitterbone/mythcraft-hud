@@ -537,6 +537,11 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
 
         // Hotbar Macro Buttons
         html.find('.hotbar-macro-btn').on('click', this._onMacroExecute.bind(this));
+        html.find('.hotbar-macro-btn').on('contextmenu', this._onMacroRightClick.bind(this));
+
+        // Hotbar Drag & Drop
+        html.find('.hotbar-slot').on('dragover', (event) => event.preventDefault());
+        html.find('.hotbar-slot').on('drop', this._onHotbarDrop.bind(this));
 
         // Expansion List Buttons (delegate from the expansion area)
         const expansionArea = html.find('#mythcraft-hud-expansion');
@@ -735,6 +740,46 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
                 await macro.execute();
             }
         }
+    }
+
+    async _onMacroRightClick(event) {
+        event.preventDefault();
+        const slotEl = event.currentTarget.closest('.hotbar-slot');
+        let slot = parseInt(slotEl?.dataset?.slot);
+        if (isNaN(slot)) {
+            slot = $(slotEl).parent().children('.hotbar-slot').index(slotEl) + 1;
+        }
+        if (slot) {
+            await game.user.assignHotbarMacro(null, slot);
+            this.render({ force: true });
+        }
+    }
+
+    async _onHotbarDrop(event) {
+        event.preventDefault();
+        const dragEvent = event.originalEvent || event;
+        const data = TextEditor.getDragEventData(dragEvent);
+        if (!data) return;
+
+        const slotEl = event.currentTarget;
+        let slot = parseInt(slotEl.dataset?.slot);
+        if (isNaN(slot)) {
+            slot = $(slotEl).parent().children('.hotbar-slot').index(slotEl) + 1;
+        }
+
+        // Fire the core hotbarDrop hook (triggers system macro creation for items, spells, etc)
+        const hookResult = await Hooks.call("hotbarDrop", ui.hotbar, data, slot);
+        
+        // Handle direct macro drops if the hook didn't explicitly return false
+        if (hookResult !== false && data.type === "Macro") {
+            const macro = await fromUuid(data.uuid) || game.macros.get(data.id);
+            if (macro) {
+                await game.user.assignHotbarMacro(macro, slot);
+            }
+        }
+
+        // Re-render to show the newly assigned macro
+        setTimeout(() => this.render({ force: true }), 250);
     }
 
     _onConditionClick(event) {
