@@ -1658,36 +1658,35 @@ body.vtt .myth-hud-dialog .dialog-buttons button:hover {
 }
 
 /* ============================================
-   GLOBAL DIALOG & POPUP OVERRIDES
+   FORCE-HUD-ONLY DIALOG & POPUP STYLING
    ============================================ */
 
-.dialog, .window-app, .situational-bonus {
+.myth-hud-dialog, .myth-hud-dialog.window-app {
     background: var(--color-bg) !important;
     color: var(--color-text) !important;
     border: 1px solid var(--color-border) !important;
     border-radius: 4px !important;
 }
 
-.dialog .window-content, .window-app .window-content {
+.myth-hud-dialog .window-content {
     background: transparent !important;
     color: inherit !important;
 }
 
-.dialog .window-header, .window-app .window-header {
+.myth-hud-dialog .window-header {
     background: #0f2a2b !important;
     border-bottom: 1px solid var(--color-border) !important;
     color: var(--color-border) !important;
 }
 
-.dialog input, .window-app input, .situational-bonus input,
-.dialog select, .window-app select, .situational-bonus select {
+.myth-hud-dialog input, .myth-hud-dialog select {
     background: rgba(255, 255, 255, 0.05) !important;
     color: var(--color-text) !important;
     border: 1px solid var(--color-border) !important;
 }
 
-/* Make button text readable in themed dialogs by increasing specificity */
-.dialog .dialog-buttons button, .window-app .dialog-buttons button, .situational-bonus .dialog-buttons button {
+/* Make button text readable for Mythcraft HUD dialogs */
+.myth-hud-dialog .dialog-buttons button {
     background: rgba(58, 122, 127, 0.3) !important;
     border: 1px solid var(--color-border) !important;
     color: var(--color-border) !important;
@@ -1696,7 +1695,7 @@ body.vtt .myth-hud-dialog .dialog-buttons button:hover {
     box-shadow: none !important;
 }
 
-.dialog .dialog-buttons button:hover, .window-app .dialog-buttons button:hover, .situational-bonus .dialog-buttons button:hover {
+.myth-hud-dialog .dialog-buttons button:hover {
     background: var(--color-border) !important;
     color: #000 !important;
     box-shadow: 0 0 5px var(--color-border) !important;
@@ -1728,10 +1727,8 @@ body.vtt .myth-hud-dialog .dialog-buttons button:hover {
     color: #eee !important;
 }
 
-/* Global Input Standardization */
-.dialog input[type="number"], .dialog input[type="text"], .dialog select,
-.window-app input[type="number"], .window-app input[type="text"], .window-app select,
-.situational-bonus input, .situational-bonus select {
+/* HUD-specific input standardization */
+.myth-hud-dialog input[type="number"], .myth-hud-dialog input[type="text"], .myth-hud-dialog select {
     background: #222 !important;
     color: #d3c4a3 !important;
     border: 1px solid #d3c4a3 !important;

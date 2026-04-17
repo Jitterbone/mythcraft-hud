@@ -4,8 +4,8 @@
   "description": "A modular, persistent contextual HUD for the Mythcraft system in Foundry VTT. Replaces the default hotbar with a dynamic, actor-aware interface.",
   "version": "0.9.1-beta",
   "compatibility": {
-    "minimum": "11",
-    "verified": "11"
+    "minimum": "13",
+    "verified": "13"
   },
   "authors": [
     {
