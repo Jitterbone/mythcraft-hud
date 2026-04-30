@@ -379,7 +379,8 @@ export class ActionHandler {
             const command = isHealing ? `/heal ${formula}` : `/damage ${formula} type=${type}`;
             const damageString = `[[${command}]]`;
             
-            let enriched = await TextEditor.enrichHTML(damageString, { async: true, rollData: actor.getRollData() });
+            const txtEd = foundry.applications?.ux?.TextEditor ?? TextEditor;
+            let enriched = await txtEd.enrichHTML(damageString, { async: true, rollData: actor.getRollData() });
             
             // Prompt 1: Label Sync
             const label = isHealing ? 'ROLL HEAL' : 'ROLL DAMAGE';
@@ -557,7 +558,8 @@ export class ActionHandler {
     static async createProfessionalChatCard(data) {
         const { actor, title, roll, label, icon, description, extraHtml, isSpell, spCost, apCost, rollMode } = data;
         
-        const chatRollMode = rollMode || game.settings.get("core", "rollMode");
+        const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
+        const chatRollMode = rollMode || defaultMode;
         const isBlind = chatRollMode === 'blindroll';
 
         let resultClass = "";
@@ -632,13 +634,31 @@ export class ActionHandler {
             user: game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: actor }),
             content: content,
-            type: CONST.CHAT_MESSAGE_TYPES.OTHER,
             sound: (roll && !muteDice) ? CONFIG.sounds.dice : null
         };
 
-        // Apply the roll mode. This will correctly set `blind: true` for blind rolls,
-        // preventing the message from being sent to the rolling player at all.
-        ChatMessage.applyRollMode(chatData, chatRollMode);
+        // V12+ replaced ChatMessage types with styles. V14 strictly enforces schemas.
+        if (CONST.CHAT_MESSAGE_STYLES) {
+            chatData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+        } else if (CONST.CHAT_MESSAGE_TYPES) {
+            chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+        }
+
+        // Apply the roll mode manually if applyRollMode is deprecated/removed in V14
+        if (ChatMessage.applyMode) {
+            ChatMessage.applyMode(chatData, chatRollMode);
+        } else if (ChatMessage.applyRollMode) {
+            ChatMessage.applyRollMode(chatData, chatRollMode);
+        } else {
+            if (chatRollMode === "blindroll") {
+                chatData.blind = true;
+                chatData.whisper = ChatMessage.getWhisperRecipients("GM");
+            } else if (chatRollMode === "gmroll") {
+                chatData.whisper = ChatMessage.getWhisperRecipients("GM");
+            } else if (chatRollMode === "selfroll") {
+                chatData.whisper = [game.user.id];
+            }
+        }
 
         // Manually handle 3D dice since we are bypassing the default roll message type.
         if (roll && game.dice3d) {
@@ -654,7 +674,7 @@ export class ActionHandler {
             }
         }
 
-        return ChatMessage.create(chatData);
+        return ChatMessage.create(chatData, { rollMode: chatRollMode });
     }
 
     static async createChatCard(actor, title, roll, label = "Result") {

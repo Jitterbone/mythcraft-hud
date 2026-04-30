@@ -18,6 +18,7 @@ Hooks.on("init", () => {
         label: c.label,
         description: c.description,
         img: c.img,
+        icon: c.icon,
         statuses: [c.id],
         changes: c.changes,
         flags: c.flags
@@ -238,12 +239,20 @@ Hooks.on("init", () => {
             // Prepare the data payload to update the message.
             const updateData = {
                 content: newContent,
-                type: CONST.CHAT_MESSAGE_TYPES.OTHER, // Prevents default roll rendering.
                 flavor: "" // Clear flavor to avoid duplication.
             };
 
-            const chatRollMode = message.rollMode || game.settings.get("core", "rollMode");
-            ChatMessage.applyRollMode(updateData, chatRollMode);
+            // V12+ replaced ChatMessage types with styles. V14 strictly enforces schemas.
+            if (CONST.CHAT_MESSAGE_STYLES) {
+                updateData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+            } else if (CONST.CHAT_MESSAGE_TYPES) {
+                updateData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+            }
+
+            const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
+            const chatRollMode = message.rollMode || defaultMode;
+            if (ChatMessage.applyMode) ChatMessage.applyMode(updateData, chatRollMode);
+            else if (ChatMessage.applyRollMode) ChatMessage.applyRollMode(updateData, chatRollMode);
 
             if (!d.sound && d.rolls?.length > 0) updateData.sound = CONFIG.sounds.dice;
 
@@ -280,6 +289,7 @@ Hooks.on("setup", () => {
         label: c.label,
         description: c.description,
         img: c.img,
+        icon: c.icon,
         statuses: [c.id],
         changes: c.changes,
         flags: c.flags
@@ -293,6 +303,7 @@ Hooks.once("ready", async () => {
         label: c.label,
         description: c.description,
         img: c.img,
+        icon: c.icon,
         statuses: [c.id],
         changes: c.changes,
         flags: c.flags

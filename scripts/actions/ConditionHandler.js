@@ -42,7 +42,7 @@ function renderRadialConditions(token) {
     const centerX = token.w / 2;
     const centerY = token.h / 2;
     // Icon size in canvas units
-    const iconSize = 20;
+    const iconSize = 10;
     const ANGLE_STEP = 32;
 
     statuses.forEach((statusId, index) => {
@@ -118,26 +118,34 @@ export class ConditionHandler {
 
     isMythcraftCondition(effect) {
         if (!effect) return false;
-        // In V13, the statuses set is the primary way to identify a status effect
+        // In V13+, the statuses set is the primary way to identify a status effect
         const effectStatuses = effect.statuses;
-        if (effectStatuses.size === 0) return false;
+        if (!effectStatuses || effectStatuses.size === 0) return false;
 
         const statusId = effectStatuses.values().next().value; // Get the first status ID
         return CONFIG.statusEffects.some(se => se.id === statusId && se.flags?.['mythcraft-hud']);
     }
 
     handlePreCreateActiveEffect(effect, data, options, userId) {
-        if (!this.isMythcraftCondition(effect)) return;
+        // Get the statuses from either the effect or data
+        const statuses = effect.statuses || data.statuses || [];
+        const statusArray = Array.isArray(statuses) ? statuses : [...(statuses ?? [])];
+        
+        if (statusArray.length === 0) return;
 
-        const effectStatuses = effect.statuses;
-        if (!effectStatuses || effectStatuses.size === 0) return;
-
-        const statusId = effectStatuses.values().next().value;
+        const statusId = statusArray[0];
         const condition = CONFIG.statusEffects.find(c => c.id === statusId);
+        
+        if (!condition) return;
+        if (!condition.flags?.['mythcraft-hud']) return;
 
-        if (condition && condition.description && !effect.description) {
-            effect.updateSource({ description: condition.description, img: condition.img, icon: condition.img });
-        }
+        // Ensure statuses are properly set as an array
+        effect.updateSource({ 
+            statuses: [statusId],
+            description: condition.description || effect.description || "",
+            img: condition.img,
+            icon: condition.img
+        });
     }
 
     handleRenderTokenHUD(app, html, data) {
@@ -163,7 +171,14 @@ export class ConditionHandler {
             icon.on('click.mythcraft-hud', async (event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                await app.object.toggleEffect(condition);
+                // Standard approach for Foundry V11+
+                if (actor.toggleStatusEffect) {
+                    await actor.toggleStatusEffect(statusId);
+                } else if (app.object.document?.toggleActiveEffect) {
+                    await app.object.document.toggleActiveEffect(condition);
+                } else if (app.object.toggleEffect) { // Backwards compatibility
+                    await app.object.toggleEffect(condition);
+                }
             });
 
             icon.on('contextmenu.mythcraft-hud', (event) => event.preventDefault());
@@ -282,21 +297,30 @@ export class ConditionHandler {
             const hasBloodied = actor.statuses.has('bloodied');
 
             if (isBloodied && !hasBloodied) {
-                const condition = CONFIG.statusEffects.find(se => se.id === 'bloodied');
-                if (condition) {
-                    const effectData = {
-                        name: condition.label || condition.name || 'Bloodied',
-                        img: condition.img,
-                        icon: condition.img,
-                        statuses: [condition.id],
-                        changes: condition.changes ?? []
-                    };
-                    await actor.createEmbeddedDocuments('ActiveEffect', [effectData]);
+                if (actor.toggleStatusEffect) {
+                    await actor.toggleStatusEffect('bloodied', { active: true });
+                } else {
+                    const condition = CONFIG.statusEffects.find(se => se.id === 'bloodied');
+                    if (condition) {
+                        const effectData = {
+                            name: condition.label || condition.name || 'Bloodied',
+                            img: condition.img,
+                            icon: condition.img || condition.img,
+                            statuses: [condition.id],
+                            changes: condition.changes ?? [],
+                            flags: condition.flags || {}
+                        };
+                        await actor.createEmbeddedDocuments('ActiveEffect', [effectData]);
+                    }
                 }
             } else if (!isBloodied && hasBloodied) {
-                const effectToRemove = actor.effects.find(e => e.statuses.has('bloodied'));
-                if (effectToRemove) {
-                    await effectToRemove.delete();
+                if (actor.toggleStatusEffect) {
+                    await actor.toggleStatusEffect('bloodied', { active: false });
+                } else {
+                    const effectToRemove = actor.effects.find(e => e.statuses.has('bloodied'));
+                    if (effectToRemove) {
+                        await effectToRemove.delete();
+                    }
                 }
             }
         }

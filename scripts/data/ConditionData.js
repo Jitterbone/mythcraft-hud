@@ -1,3 +1,7 @@
+const MODE_ADD = globalThis.CONST?.ACTIVE_EFFECT_CHANGE_TYPES ? "add" : 2;
+const MODE_OVERRIDE = globalThis.CONST?.ACTIVE_EFFECT_CHANGE_TYPES ? "override" : 5;
+const MODE_MULTIPLY = globalThis.CONST?.ACTIVE_EFFECT_CHANGE_TYPES ? "multiply" : 1;
+
 export const mcConditions = [
   {
     id: 'absorb',
@@ -87,8 +91,8 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/concealed.svg',
     description: 'You are Concealed when you are not completely hidden, but Line of Sight is interrupted by fog, smoke, foliage, or other obscuring phenomena. Creatures are aware of exactly where you are but cannot see you clearly. While Concealed, you have +1 TA on attacks provided that you can see your enemy clearly, and attacks against you suffer 1 TD.',
     changes: [
-      { key: 'system.bonuses.ta', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" },
-      { key: 'system.bonuses.td.all', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+      { key: 'system.bonuses.ta', mode: MODE_ADD, value: "1" },
+      { key: 'system.bonuses.td.all', mode: MODE_ADD, value: "1" }
     ],
   },
   {
@@ -98,9 +102,9 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/cover.svg',
     description: 'If at least 1⁄2 of your body is protected by an object that would block physical damage, then you have Partial Cover. Your AR and physical defenses gain between +1 and +3 against ranged attacks, determined by your MC and the amount of cover you have. When you have Total Cover, you cannot be targeted by ranged attacks or any effect that requires Line of Sight to you.',
     changes: [
-        { key: 'system.defenses.ar', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" },
-        { key: 'system.defenses.ref', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" },
-        { key: 'system.defenses.fort', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+        { key: 'system.defenses.ar', mode: MODE_ADD, value: "1" },
+        { key: 'system.defenses.ref', mode: MODE_ADD, value: "1" },
+        { key: 'system.defenses.fort', mode: MODE_ADD, value: "1" }
     ]
   },
   {
@@ -155,7 +159,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/fatigued.svg',
     description: 'Whenever you gain Fatigue, immediately gain +1 Death Point and become Fatigued (you gain +1 Death Point each time you gain Fatigue, even if you were already Fatigued). While Fatigued, you do not remove your Death Points when you Recoup or Take a Rest. Instead, when you Take a Rest, you remove the Fatigued condition if you eat and drink the minimum amount needed to sustain you.',
     changes: [
-      { key: 'system.death.value', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+      { key: 'system.death.value', mode: MODE_ADD, value: "1" }
     ],
     flags: { "mythcraft-hud": { "fatigued": true } }
   },
@@ -166,7 +170,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/flanking.svg',
     description: 'The Flanking condition is achieved when two friendly targets threaten a border or corner opposite of one another. You are only considered to threaten a square if you are able to melee attack that square. A Prone creature can flank, for example, but an Unconscious one cannot. If you are Flanking, you gain +1 TA against the creature you are Flanking.',
     changes: [
-      { key: 'system.bonuses.ta', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+      { key: 'system.bonuses.ta', mode: MODE_ADD, value: "1" }
     ]
   },
   {
@@ -185,7 +189,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/frightened.svg',
     description: 'You suffer 1 TD while the source of fear is in sight, and cannot willingly move closer to the source of your fear.',
     changes: [
-      { key: 'system.bonuses.td.all', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+      { key: 'system.bonuses.td.all', mode: MODE_ADD, value: "1" }
     ],
     flags: { "mythcraft-hud": { "frightened": true } }
   },
@@ -223,7 +227,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/paralyzed.svg',
     description: 'You are Helpless and your AP becomes 0. You gain 0 AP at the start of each of your turns while Paralyzed. A creature with creature actions cannot take any creature actions or reactions while Paralyzed.',
     changes: [
-        { key: 'system.ap.value', mode: CONST.ACTIVE_EFFECT_MODES.OVERRIDE, value: "0" }
+        { key: 'system.ap.value', mode: MODE_OVERRIDE, value: "0" }
     ],
     flags: { "mythcraft-hud": { "paralyzed": true, "helpless": true } }
   },
@@ -252,7 +256,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/pinned.svg',
     description: 'You are Prone, Grappled, and suffer 1 TD on attacks. Creatures making melee attacks against you gain +1 TA, and creatures making ranged attacks against you suffer 1 TD.',
     changes: [
-      { key: 'system.bonuses.td.all', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+      { key: 'system.bonuses.td.all', mode: MODE_ADD, value: "1" }
     ],
     flags: { "mythcraft-hud": { "pinned": true, "prone": true, "grappled": true } }
   },
@@ -263,7 +267,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/prone.svg',
     description: 'You suffer 1 TD on all attacks while Prone, and cannot make attacks with two-handed weapons. Additionally, melee attacks against you have +1 TA, and ranged attacks against you suffer 1 TD.',
     changes: [
-      { key: 'system.bonuses.td.all', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+      { key: 'system.bonuses.td.all', mode: MODE_ADD, value: "1" }
     ],
     flags: { "mythcraft-hud": { "prone": true } }
   },
@@ -274,9 +278,9 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/protected.svg',
     description: 'You gain +2 to your AR and physical defenses while Protected.',
     changes: [
-      { key: 'system.defenses.ar', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "2" },
-      { key: 'system.defenses.ref', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "2" },
-      { key: 'system.defenses.fort', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "2" }
+      { key: 'system.defenses.ar', mode: MODE_ADD, value: "2" },
+      { key: 'system.defenses.ref', mode: MODE_ADD, value: "2" },
+      { key: 'system.defenses.fort', mode: MODE_ADD, value: "2" }
     ]
   },
   {
@@ -304,7 +308,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/shaken.svg',
     description: 'You suffer a -2 penalty to all d20 rolls.',
     changes: [
-      { key: 'system.bonuses.rolls.all', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "-2" }
+      { key: 'system.bonuses.rolls.all', mode: MODE_ADD, value: "-2" }
     ]
   },
   {
@@ -332,7 +336,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/slowed.svg',
     description: 'Your speed is halved.',
     changes: [
-      { key: 'system.movement.speed.value', mode: CONST.ACTIVE_EFFECT_MODES.MULTIPLY, value: "0.5" }
+      { key: 'system.movement.speed.value', mode: MODE_MULTIPLY, value: "0.5" }
     ]
   },
   {
@@ -414,7 +418,7 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/unseen.svg',
     description: 'An Unseen creature gains +1 TA, and when it makes an attack, it rolls 2d20 and takes the higher result. It cannot be targeted by Line of Sight effects. Unseen creatures are also considered Concealed.',
     changes: [
-      { key: 'system.bonuses.ta', mode: CONST.ACTIVE_EFFECT_MODES.ADD, value: "1" }
+      { key: 'system.bonuses.ta', mode: MODE_ADD, value: "1" }
     ],
     flags: { "mythcraft-hud": { "unseen": true } }
   }

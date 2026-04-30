@@ -1,29 +1,31 @@
 <div class="hud-list-container">
+    <div style="padding: 10px; background: #1a1a1a; border-bottom: 1px solid #d3c4a3;">
+        <h3 style="margin: 0 0 10px 0; color: #fdfaf3;">Available Conditions ({{conditions.length}})</h3>
+        {{#if conditions.length}}
+            {{#each conditions}}
+            <div style="display: inline-block; margin: 5px; text-align: center;">
+                <button class="condition-toggle-btn" data-condition-id="{{this.id}}" title="{{this.label}}" 
+                        style="background: {{#if this.isActive}}#4CAF50{{else}}#333{{/if}}; border: 1px solid #d3c4a3; border-radius: 4px; padding: 8px; cursor: pointer; color: #fdfaf3;">
+                    <img src="{{this.img}}" alt="{{this.label}}" style="width: 32px; height: 32px; display: block; margin-bottom: 4px;"/>
+                    <span style="font-size: 12px; display: block;">{{this.label}}</span>
+                </button>
+            </div>
+            {{/each}}
+        {{else}}
+            <div style="color: #d3c4a3;">No Conditions Available</div>
+        {{/if}}
+    </div>
+
     {{#if effects.length}}
+    <div style="padding: 10px; background: #1a1a1a; margin-top: 10px; border-top: 1px solid #d3c4a3;">
+        <h3 style="margin: 0 0 10px 0; color: #fdfaf3;">Active Conditions</h3>
         {{#each effects}}
-        <div class="hud-card-layout">
-            <div class="hud-action-btn" style="cursor:default;">
-                <img class="hud-item-icon" src="{{this.img}}" title="{{this.name}}"/>
-                <div class="hud-text-container">
-                    <div class="hud-row-top">
-                        <span class="hud-item-name">{{this.name}}</span>
-                    </div>
-                </div>
-            </div>
-            <div class="hud-control-stack">
-                <button class="info-toggle-btn" data-target="desc-{{this.id}}">
-                    <i class="fas fa-info"></i>
-                </button>
-                <button class="remove-condition-btn" data-effect-id="{{this.id}}" title="Remove Condition">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-        </div>
-        <div id="desc-{{this.id}}" class="hud-item-description" style="display:none;">
-            {{{this.description}}}
+        <div style="padding: 8px; background: #222; margin: 5px 0; border-radius: 4px; border-left: 3px solid #e74c3c;">
+            <strong style="color: #fdfaf3;">{{this.name}}</strong>
+            <button class="remove-condition-btn" data-effect-id="{{this.id}}" style="float: right; background: #e74c3c; border: none; color: white; padding: 4px 8px; cursor: pointer; border-radius: 2px;">Remove</button>
+            <div style="clear: both; font-size: 12px; color: #d3c4a3; margin-top: 4px;">{{{this.description}}}</div>
         </div>
         {{/each}}
-    {{else}}
-        <div class="hud-empty-state">No Active Conditions</div>
+    </div>
     {{/if}}
 </div>

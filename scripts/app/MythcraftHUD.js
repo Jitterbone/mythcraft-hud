@@ -333,6 +333,14 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             };
         });
 
+        // Get all possible conditions and mark which are active
+        const allConditions = MythcraftConditions.map(c => {
+            return {
+                ...c,
+                isActive: actor.statuses.has(c.id)
+            };
+        }).sort((a, b) => a.label.localeCompare(b.label));
+
         // Attribute & Defense Pairs
         const attributes = system.attributes || {};
         const defenses = system.defenses || {};
@@ -400,58 +408,168 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             gmCharacters: gmCharacters,
             restFeatures: restData,
             death: deathData,
-            effects: effects
+            effects: effects,
+            conditions: allConditions // Pass all conditions to the template
         };
 
         return this.currentData;
     }
 
     _processMultiattack(itemData) {
-        // Assume actions are in 'features' based on typical structure
+        // Gather ALL items to ensure we don't miss reactions/passives stored in other arrays
         const features = itemData.features || [];
-        const multiattack = features.find(i => i.name.toLowerCase() === 'multiattack');
+        const weapons = itemData.weapons || [];
+        const passivesArr = itemData.passives || [];
+        const actionsArr = itemData.actions || [];
+        const reactionsArr = itemData.reactions || [];
         
-        if (multiattack) {
-            let desc = multiattack.system.description.value || "";
-            const subActions = [];
+        const allItems = Array.from(new Set([...features, ...weapons, ...passivesArr, ...actionsArr, ...reactionsArr]));
+        
+        const multiattack = allItems.find(i => i.name.toLowerCase() === 'multiattack');
+        
+        const passives = [];
+        const tier1 = [];
+        const tier2 = [];
+        const reactions = [];
+        const others = [];
+
+        allItems.forEach(item => {
+            if (item === multiattack) return;
             
-            // Sort features by name length descending to match longest names first
-            const otherFeatures = features.filter(i => i !== multiattack).sort((a, b) => b.name.length - a.name.length);
+            const sys = item.system || {};
+            const cat = (sys.category || "").toLowerCase();
+            const tier = parseInt(sys.tier, 10);
             
-            otherFeatures.forEach(feat => {
-                // Escape regex special characters
-                const escapedName = feat.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const regex = new RegExp(`\\b${escapedName}\\b`, 'g');
-                
-                if (regex.test(desc)) {
-                    // Mark as hidden from main list
-                    feat.isHidden = true;
-                    
-                    // Create injection HTML
-                    const btnHtml = `
-                    <div class="injected-group">
-                        <button class="injected-btn feature-btn" data-item-id="${feat._id}">${feat.name}</button>
-                        <button class="injected-info info-toggle-btn" data-target="desc-${feat._id}"><i class="fas fa-info"></i></button>
+            if (cat === "passive") {
+                passives.push(item);
+            } else if (cat === "reaction") {
+                reactions.push(item);
+            } else if (cat === "action") {
+                if (tier === 1) tier1.push(item);
+                else if (tier === 2) tier2.push(item);
+                else others.push(item);
+            } else if (item.type === "weapon") {
+                tier1.push(item); // Fallback weapons to Tier 1
+            } else {
+                others.push(item);
+            }
+        });
+
+        // Clear ALL original arrays to fully control the layout via itemData.multiattack
+        itemData.features = [];
+        itemData.weapons = [];
+        itemData.passives = [];
+        itemData.actions = [];
+        itemData.reactions = [];
+
+        // 1. Passives render natively ABOVE the combat routine box
+        passives.forEach(p => itemData.features.push(p));
+
+        const hasCombatRoutine = multiattack || tier1.length > 0 || tier2.length > 0 || reactions.length > 0;
+        const hasContent = hasCombatRoutine || passives.length > 0 || others.length > 0;
+
+        if (hasContent) {
+            let plainText = "";
+            if (multiattack) {
+                const rawDesc = multiattack.system?.description?.value || "";
+                // Foundry often stores HTML entities in JSON exports. Decode them first!
+                const decodedDesc = rawDesc.replace(/&lt;/gi, '<')
+                                           .replace(/&gt;/gi, '>')
+                                           .replace(/&amp;/gi, '&')
+                                           .replace(/&nbsp;/gi, ' ');
+                                           
+                plainText = decodedDesc.replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+                                       .replace(/<br\s*\/?>/gi, '\n')
+                                       .replace(/<[^>]+>/g, '')
+                                       .replace(/\n\s*\n/g, '\n\n')
+                                       .trim();
+            }
+
+            const buildTierHtml = (tierName, items, options = {}) => {
+                if (items.length === 0) return "";
+                const headerColor = options.headerColor || '#a8d5e2';
+                const borderColor = options.borderColor || 'rgba(58, 122, 127, 0.5)';
+                const groupStyle = options.groupStyle || '';
+
+                let html = `<div class="tier-group" style="${groupStyle}"><div style="font-weight: bold; color: ${headerColor}; margin: 8px 0 4px 0; border-bottom: 1px solid ${borderColor}; padding-bottom: 2px;">${tierName}</div>`;
+                items.forEach(item => {
+                    const itemId = item._id || item.id;
+                    const btnClass = item.type === 'weapon' ? 'weapon-btn' : 'feature-btn';
+                    html += `
+                    <div class="injected-group" style="display: flex; margin-bottom: 2px; width: 100%;">
+                        <div class="injected-btn ${btnClass}" data-item-id="${itemId}" style="flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;">${item.name}</div>
+                        <div class="injected-info info-toggle-btn" data-target="desc-${itemId}" style="flex: 0 0 30px; cursor: pointer; display: flex; align-items: center; justify-content: center;"><i class="fas fa-info"></i></div>
+                    </div>
+                    <div id="desc-${itemId}" class="card-body condition-desc" style="display: none; padding: 6px; font-size: 0.85em; color: #ccc; border-left: 2px solid #3a7a7f; margin-bottom: 6px; background: rgba(0,0,0,0.2);">
+                        ${item.system?.description?.value || ""}
                     </div>`;
-                    
-                    desc = desc.replace(regex, btnHtml);
-                    
-                    subActions.push({
-                        id: `desc-${feat._id}`,
-                        name: feat.name,
-                        description: feat.system.description.value || ""
-                    });
+                });
+                html += `</div>`;
+                return html;
+            };
+
+            let routineHtml = `
+            <style>
+            [data-item-id="combat-routine-master"] {
+                background: transparent !important;
+                border: none !important;
+                box-shadow: none !important;
+                cursor: default !important;
+                padding: 0 !important;
+                margin-top: 6px !important;
+                margin-bottom: 6px !important;
+            }
+            [data-item-id="combat-routine-master"]:hover {
+                background: transparent !important;
+                border: none !important;
+                transform: none !important;
+            }
+            [data-item-id="combat-routine-master"] > .feature-header,
+            [data-item-id="combat-routine-master"] > .card-header {
+                display: none !important;
+            }
+            [data-item-id="combat-routine-master"] > .feature-body,
+            [data-item-id="combat-routine-master"] > .card-body {
+                display: block !important;
+                padding: 0 !important;
+                background: transparent !important;
+                border: none !important;
+            }
+            </style>
+            <div class="combat-routine-box" style="border: 1px solid rgba(231, 76, 60, 0.4); border-radius: 4px; padding: 6px; background: rgba(40, 40, 40, 0.3);">
+                <div style="font-weight: bold; color: #e74c3c; margin-bottom: 8px; border-bottom: 1px solid rgba(231, 76, 60, 0.5); padding-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; font-size: 1.0em;">Combat Routine</div>
+            `;
+            
+            if (plainText) {
+                routineHtml += `<div class="multiattack-plaintext" style="font-style: italic; color: #d3c4a3; margin-bottom: 12px; font-size: 0.95em; padding: 8px; border-left: 3px solid #e74c3c; background: rgba(0,0,0,0.3); white-space: pre-wrap; line-height: 1.4;">${plainText}</div>`;
+            }
+
+            const redGroupStyle = 'background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.2); padding: 0 6px 6px 6px; border-radius: 3px; margin-top: 6px;';
+            const blueGroupStyle = 'background: rgba(52, 152, 219, 0.1); border: 1px solid rgba(52, 152, 219, 0.2); padding: 0 6px 6px 6px; border-radius: 3px; margin-top: 6px;';
+
+            routineHtml += buildTierHtml("Tier 1 Actions", tier1, { groupStyle: redGroupStyle });
+            routineHtml += buildTierHtml("Tier 2 Actions", tier2, { groupStyle: redGroupStyle });
+            routineHtml += buildTierHtml("Reactions", reactions, { groupStyle: blueGroupStyle });
+            
+            routineHtml += `</div>`;
+
+            // 2. Inject the synthetic Combat Routine card
+            itemData.features.push({
+                _id: "combat-routine-master",
+                id: "combat-routine-master",
+                name: "Combat Routine",
+                img: "icons/svg/combat.svg",
+                type: "feature",
+                system: {
+                    description: {
+                        value: routineHtml
+                    }
                 }
             });
-            
-            itemData.multiattack = {
-                processedDesc: desc,
-                subActions: subActions
-            };
-            
-            // Hide the original Multiattack card too
-            multiattack.isHidden = true;
         }
+
+        // 3. Other Actions render natively BELOW the combat routine box
+        others.forEach(o => itemData.features.push(o));
     }
 
     _renderGMCharacterSwitcher(html, context) {
@@ -551,6 +669,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         expansionArea.on('click', '.spell-btn', this._onSpellClick.bind(this));
         expansionArea.on('click', '.remove-condition-btn', this._onRemoveConditionClick.bind(this));
         expansionArea.on('click', '.feature-btn', this._onFeatureClick.bind(this));
+        expansionArea.on('click', '.condition-toggle-btn', this._onConditionToggle.bind(this));
         expansionArea.on('click', '.hud-save-btn', this._onSaveRoll.bind(this));
         expansionArea.on('click', '.info-toggle-btn', this._onInfoToggle.bind(this));
         expansionArea.on('click', '.clickable-card', this._onCardClick.bind(this));
@@ -668,6 +787,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
                 name: macro?.name || '',
                 icon: macro?.img || 'icons/svg/d20-black.svg'
             });
+            
         }
         
         return macros;
@@ -679,10 +799,14 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         event.preventDefault();
         const btn = event.currentTarget;
         const type = btn.dataset.type;
+        
+        console.log(`=== MENU BUTTON CLICKED: ${type} ===`);
+        
         const expansionArea = $(this.element).find('#mythcraft-hud-expansion');
 
         // If this menu is already open, close it and do nothing else.
         if (this.currentTab === type) {
+            console.log(`Menu ${type} already open, closing...`);
             this.closeExpansion();
             return;
         }
@@ -699,6 +823,9 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             console.error(`Mythcraft HUD | No template path found for type: ${type}`);
             return;
         }
+
+        console.log(`Loading template: ${templatePath}`);
+        console.log(`Current data has conditions: ${this.currentData?.conditions?.length || 0} conditions`);
 
         const appRect = this.element.getBoundingClientRect();
         const btnRect = btn.getBoundingClientRect();
@@ -717,6 +844,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             });
 
             const listHtml = await foundry.applications.handlebars.renderTemplate(templatePath, this.currentData);
+            console.log(`Template rendered successfully, HTML length: ${listHtml.length}`);
+            
             // The rest menu is short and has tooltips that need to escape. Don't wrap it in a scroller.
             if (type === 'rest') {
                 expansionArea.html(listHtml);
@@ -725,6 +854,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             }
             // After successfully opening, set the current tab.
             this.currentTab = type;
+            console.log(`Menu ${type} opened successfully`);
         } catch (err) {
             console.error(`Mythcraft HUD | Failed to render and inject template '${type}':`, err);
             this.closeExpansion(); // Close on error to be safe.
@@ -758,7 +888,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
     async _onHotbarDrop(event) {
         event.preventDefault();
         const dragEvent = event.originalEvent || event;
-        const data = TextEditor.getDragEventData(dragEvent);
+        const txtEd = foundry.applications?.ux?.TextEditor ?? TextEditor;
+        const data = txtEd.getDragEventData(dragEvent);
         if (!data) return;
 
         const slotEl = event.currentTarget;
@@ -794,6 +925,41 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         desc.slideToggle(200);
     }
         
+    async _onConditionToggle(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        
+        console.log("=== CONDITION TOGGLE CLICKED ===");
+        
+        const actor = this.targetActor;
+        console.log("Target actor:", actor?.name || "NONE");
+        if (!actor) return;
+
+        const button = event.currentTarget;
+        const conditionId = button.dataset.conditionId;
+        console.log("Condition ID:", conditionId);
+        
+        if (!conditionId) {
+            console.error("No conditionId found on button:", button);
+            return;
+        }
+
+        const condition = MythcraftConditions.find(c => c.id === conditionId);
+        console.log("Condition found:", condition?.label || "NOT FOUND");
+        if (!condition) {
+            console.error(`Condition ${conditionId} not found in MythcraftConditions`);
+            return;
+        }
+
+        try {
+            console.log(`Toggling status effect ${conditionId}...`);
+            await actor.toggleStatusEffect(conditionId);
+            console.log("Status effect toggled!");
+        } catch (error) {
+            console.error("Error toggling status effect:", error);
+        }
+    }
+
             async _onRemoveConditionClick(event) {
                 event.preventDefault();
                 event.stopPropagation();
@@ -809,6 +975,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         
             async _onWeaponClick(event) {
         event.preventDefault();
+        event.stopPropagation();
         const actor = this.targetActor;
         if (!actor) return;
         const itemId = event.currentTarget.dataset.itemId;
@@ -841,9 +1008,11 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
 
     _onFeatureClick(event) {
         event.preventDefault();
+        event.stopPropagation();
         const actor = this.targetActor;
         if (!actor) return;
         const itemId = event.currentTarget.dataset.itemId;
+        if (itemId === "combat-routine-master") return;
         const isBlind = $(event.currentTarget).hasClass('injected-btn');
         ActionHandler.useAction(itemId, actor, { rollMode: isBlind ? 'blindroll' : null });
         if (actor.type !== 'npc') this.closeExpansion();
@@ -867,6 +1036,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
     _onCardClick(event) {
         event.preventDefault();
         event.stopPropagation();
+        const itemId = event.currentTarget.dataset.itemId;
+        if (itemId === "combat-routine-master") return;
         $(event.currentTarget).find('.card-body').slideToggle(200);
     }
 
@@ -954,7 +1125,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
 
         if (featureItem) {
             // Enrich the description to make inline rolls clickable before sending to chat.
-            const enrichedDesc = await TextEditor.enrichHTML(featureItem.system.description.value, { async: true, rollData: actor.getRollData() });
+            const txtEd = foundry.applications?.ux?.TextEditor ?? TextEditor;
+            const enrichedDesc = await txtEd.enrichHTML(featureItem.system.description.value, { async: true, rollData: actor.getRollData() });
 
             // Create an embedded card for the feature.
             content += `
