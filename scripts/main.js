@@ -166,6 +166,29 @@ Hooks.on("init", () => {
             return;
         }
 
+        // Style Roll Table results without breaking their native item drop links.
+        if (d.flags?.core?.RollTableIds || d.content?.includes("table-draw")) {
+            const flavor = d.flavor || "Table Draw Result";
+            const newContent = `
+                <div class="mythcraft-statblock">
+                    <div class="card-header">${flavor}</div>
+                    <div class="card-body" style="padding: 8px;">
+                        ${d.content}
+                    </div>
+                </div>`;
+            
+            const updateData = {
+                content: newContent,
+                flavor: "" // Clear flavor to avoid duplication.
+            };
+
+            if (CONST.CHAT_MESSAGE_STYLES) updateData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+            else if (CONST.CHAT_MESSAGE_TYPES) updateData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+
+            message.updateSource(updateData);
+            return;
+        }
+
         // Process messages that have rolls and are not already styled.
         if (d.rolls && d.rolls.length > 0 && !d.content?.includes("mythcraft-statblock")) {
             let roll = d.rolls[0];

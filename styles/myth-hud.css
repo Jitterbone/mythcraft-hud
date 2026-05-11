@@ -1969,3 +1969,54 @@ label.tac-label-td { color: #e74c3c !important; }
 canvas #controls .status-effects {
   display: none !important;
 }
+
+/* ============================================
+   ROLL TABLE & INLINE LINK INTEGRATION
+   ============================================ */
+.mythcraft-statblock .table-draw {
+    margin: 0;
+}
+.mythcraft-statblock .table-draw .table-results {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+.mythcraft-statblock .table-draw .table-result {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(58, 122, 127, 0.3);
+}
+.mythcraft-statblock .table-draw .table-result:last-child {
+    border-bottom: none;
+}
+.mythcraft-statblock .table-draw .result-image {
+    border: 1px solid #3a7a7f;
+    border-radius: 4px;
+    width: 32px;
+    height: 32px;
+    object-fit: cover;
+    background: #000;
+    flex-shrink: 0;
+}
+.mythcraft-statblock .table-draw .result-text {
+    flex: 1;
+}
+.mythcraft-statblock .content-link {
+    background: rgba(58, 122, 127, 0.3) !important;
+    border: 1px solid #3a7a7f !important;
+    color: #FEEBB3 !important;
+    border-radius: 3px;
+    padding: 2px 6px;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    word-break: break-all;
+}
+.mythcraft-statblock .content-link:hover {
+    background: #3a7a7f !important;
+    color: #fff !important;
+    text-shadow: 0 0 5px rgba(254, 235, 179, 0.5);
+}
