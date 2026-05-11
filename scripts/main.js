@@ -59,6 +59,16 @@ Hooks.on("init", () => {
         default: false
     });
 
+    game.settings.register('mythcraft-hud', 'disableChatStyling', {
+        name: "Disable Custom Chat Styling",
+        hint: "Turn off the module's custom styling for chat cards. Your rolls will revert to the standard Foundry VTT format.",
+        scope: "client",
+        config: true,
+        type: Boolean,
+        default: false,
+        requiresReload: true
+    });
+
     // 1. Dialog & Popup Overhaul (CSS Variables)
     const style = document.createElement('style');
     style.innerHTML = `
@@ -159,6 +169,11 @@ Hooks.on("init", () => {
     // This uses the 'preCreateChatMessage' hook which is the modern, safe way to modify
     // chat message data before it is saved to the database.
     Hooks.on('preCreateChatMessage', async (message) => {
+        // If the user disabled custom chat styling, skip processing entirely.
+        if (game.settings.get('mythcraft-hud', 'disableChatStyling')) {
+            return;
+        }
+
         const d = message; // Work with the document directly
 
         // Ignore initiative rolls to avoid conflicts with the combat tracker.
@@ -349,6 +364,11 @@ Hooks.once("ready", async () => {
     new ConditionHandler();
     hudInstance = new MythcraftHUD();
     game.mythHUD = hudInstance; // Expose globally for settings callbacks
+
+    // Apply chat theme class to body if chat styling is not disabled
+    if (!game.settings.get('mythcraft-hud', 'disableChatStyling')) {
+        document.body.classList.add('mythcraft-chat-theme');
+    }
 
     // Apply HUD Scale
     const currentScale = game.settings.get('mythcraft-hud', 'hudScale');

@@ -878,20 +878,20 @@
 
 /* Chat scroll container - Foundry V13 native styling */
 /* More specific scrollbar styling for the main chat log */
-#chat-log {
+.mythcraft-chat-theme #chat-log {
     scrollbar-width: thin !important;
     direction: ltr;
 }
 
-.chat-scroll::-webkit-scrollbar, #chat-log::-webkit-scrollbar {
+.mythcraft-chat-theme .chat-scroll::-webkit-scrollbar, .mythcraft-chat-theme #chat-log::-webkit-scrollbar {
     width: 3px !important;
 }
 
-.chat-scroll::-webkit-scrollbar-track, #chat-log::-webkit-scrollbar-track {
+.mythcraft-chat-theme .chat-scroll::-webkit-scrollbar-track, .mythcraft-chat-theme #chat-log::-webkit-scrollbar-track {
     background: transparent;
 }
 
-.chat-scroll::-webkit-scrollbar-thumb, #chat-log::-webkit-scrollbar-thumb {
+.mythcraft-chat-theme .chat-scroll::-webkit-scrollbar-thumb, .mythcraft-chat-theme #chat-log::-webkit-scrollbar-thumb {
     background: #3a7a7f;
     border-radius: 2px;
 }
@@ -944,7 +944,7 @@
 }
 
 /* More specific scrollbar styling for the main chat log */
-#chat-log {
+.mythcraft-chat-theme #chat-log {
     font-weight: bold;
 }
 
@@ -1705,7 +1705,7 @@ body.vtt .myth-hud-dialog .dialog-buttons button:hover {
    FORCE DARK MODE FOR CHAT
    ============================================ */
 
-.chat-message {
+.mythcraft-chat-theme .chat-message {
     background: #1a1a1a !important;
     border: 1px solid #3a7a7f !important;
     color: #FEEBB3 !important;
@@ -1714,16 +1714,16 @@ body.vtt .myth-hud-dialog .dialog-buttons button:hover {
     border-radius: 3px;
 }
 
-.chat-message .message-header {
+.mythcraft-chat-theme .chat-message .message-header {
     color: #FEEBB3 !important;
     border-bottom: 1px solid rgba(58, 122, 127, 0.3);
 }
 
-.chat-message .message-metadata {
+.mythcraft-chat-theme .chat-message .message-metadata {
     color: #7a9fa4 !important;
 }
 
-.chat-message .message-content {
+.mythcraft-chat-theme .chat-message .message-content {
     color: #eee !important;
 }
 
@@ -1740,7 +1740,7 @@ label.tac-label-ta { color: #3498db !important; }
 label.tac-label-td { color: #e74c3c !important; }
 
 /* Hide duplicate system buttons */
-.chat-message button.apply-damage {
+.mythcraft-chat-theme .chat-message button.apply-damage {
     display: none !important;
 }
 

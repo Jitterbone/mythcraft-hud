@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.9.8] - 2024-06-08
+## [0.9.8-beta] - 2024-06-08
 
 ### Added
 - **NPC Combat Routine UI**: Completely overhauled the presentation of NPC Multiattack and tiered actions. Passives now display cleanly at the top of the menu, while Multiattack descriptions, Tier 1 Actions, Tier 2 Actions, and Reactions are elegantly contained within a distinct, stylized "Combat Routine" box.
