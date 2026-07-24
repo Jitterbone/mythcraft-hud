@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.8.1-beta] - 2024-06-09
+
+### Fixed
+- **AP Display**: Corrected an issue where the on-token AP display would not appear for player characters who were not in combat. The AP text will now correctly show for any controlled player token, regardless of combat state, and hide for NPCs.
+
 ## [0.9.8-beta] - 2024-06-08
 
 ### Added

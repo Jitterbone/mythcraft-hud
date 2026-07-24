@@ -14,26 +14,40 @@ class ConditionTooltip {
         this.element = tooltipElement;
     }
 
-    show(title, description) {
+    show(title, description, targetEl = null) {
         if (!this.element) this._create();
-        
-        // Dynamically adjust position based on sidebar
-        const sidebar = document.getElementById('sidebar');
-        let offset = 16; // Default offset from the right edge
-        if (sidebar && !sidebar.classList.contains('collapsed')) {
-            const sidebarRect = sidebar.getBoundingClientRect();
-            // Check if the sidebar is positioned on the right edge of the viewport
-            if (sidebarRect.right >= window.innerWidth - 10) {
-                offset += sidebarRect.width;
-            }
-        }
-        this.element.style.right = `${offset}px`;
         
         this.element.innerHTML = `
             <div class="tooltip-header">${title}</div>
             <div class="tooltip-body">${description}</div>
         `;
+
         this.element.classList.remove('hidden');
+
+        if (targetEl) {
+            const rect = targetEl.getBoundingClientRect();
+            this.element.style.left = `${rect.right + 10}px`;
+            this.element.style.right = 'auto';
+            
+            let topPos = rect.top;
+            const tooltipHeight = this.element.offsetHeight;
+            if (topPos + tooltipHeight > window.innerHeight) {
+                topPos = Math.max(10, window.innerHeight - tooltipHeight - 10);
+            }
+            this.element.style.top = `${topPos}px`;
+        } else {
+            const sidebar = document.getElementById('sidebar');
+            let offset = 16;
+            if (sidebar && !sidebar.classList.contains('collapsed')) {
+                const sidebarRect = sidebar.getBoundingClientRect();
+                if (sidebarRect.right >= window.innerWidth - 10) {
+                    offset += sidebarRect.width;
+                }
+            }
+            this.element.style.right = `${offset}px`;
+            this.element.style.top = `80px`;
+            this.element.style.left = 'auto';
+        }
     }
 
     hide() {

@@ -586,15 +586,7 @@ function updateTokenAP(token) {
     // Do not show AP text for NPC actors.
     if (token.actor?.type === 'npc') return;
 
-    if (!token.inCombat) return;
-
-    const combat = game.combat;
-    if (!combat) return;
-
-    const combatant = combat.combatants.find(c => c.tokenId === token.id);
-    if (!combatant) return;
-
-    const isTurn = combat.combatant?.id === combatant.id;
+    const isTurn = token.inCombat && game.combat?.combatant?.tokenId === token.id;
     const ap = token.actor.system.ap?.value ?? 0;
 
     // Blue if turn, Yellow if not

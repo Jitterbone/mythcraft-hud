@@ -27,7 +27,10 @@ function debouncedRadial(token) {
 function renderRadialConditions(token) {
     // Remove existing radial container if present
     const existing = token.children.find(c => c.name === "mythcraft-radial");
-    if (existing) token.removeChild(existing);
+    if (existing) {
+        token.removeChild(existing);
+        existing.destroy({ children: true });
+    }
 
     const statuses = [...(token.actor?.statuses ?? [])];
     if (statuses.length === 0) return;
@@ -103,6 +106,10 @@ export class ConditionHandler {
         Hooks.on("refreshToken", (token) => {
             if (token.effects) token.effects.visible = false;
             debouncedRadial(token);
+        });
+
+        Hooks.on("canvasPan", () => {
+            conditionTooltip.hide();
         });
     }
 
@@ -183,9 +190,9 @@ export class ConditionHandler {
 
             icon.on('contextmenu.mythcraft-hud', (event) => event.preventDefault());
 
-            icon.on('mouseenter.mythcraft-hud', () => {
+            icon.on('mouseenter.mythcraft-hud', (event) => {
                 if (condition) {
-                    conditionTooltip.show(condition.label, condition.description);
+                    conditionTooltip.show(condition.label, condition.description, event.currentTarget);
                 }
             });
 
