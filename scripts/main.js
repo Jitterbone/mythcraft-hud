@@ -731,10 +731,12 @@ function updateTokenAP(token) {
     }
 
     if (!token.controlled) return;
+    // Only show AP above the token when in combat with an active initiative.
+    if (!token.inCombat || !game.combat?.combatant) return;
     // Do not show AP text for NPC actors.
     if (token.actor?.type === 'npc') return;
 
-    const isTurn = token.inCombat && game.combat?.combatant?.tokenId === token.id;
+    const isTurn = game.combat?.combatant?.tokenId === token.id;
     const ap = token.actor.system.ap?.value ?? 0;
 
     // Blue if turn, Yellow if not
