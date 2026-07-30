@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.9-beta] - 2026-07-30
+
+### Fixed
+- Preserve animated slot UI on refresh while preventing auto-roll replay for old chat cards.
+- Wrap animated dice results into a compact 5-column layout for large rolls.
+- Restrict hotbar condition listing to currently active conditions only.
+- Show on-token AP text only during active combat with initiative.
+
 ## [0.9.8.1-beta] - 2024-06-09
 
 ### Fixed
