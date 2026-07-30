@@ -1,6 +1,34 @@
 :root {
     --myth-hud-scale: 1.0;
 }
+
+.mythcraft-statblock .dice-roll {
+    margin-top: 8px;
+}
+
+/* Make the animated roll text match the HUD's gold styling */
+.mythcraft-statblock .animated-rolls-total .total {
+    color: #FEEBB3;
+    font-family: var(--font-primary, inherit);
+    font-size: 2.2em;
+    font-weight: 700;
+}
+
+.mythcraft-statblock .animated-rolls-total .formula {
+    color: rgba(254,235,179,0.85);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.9em;
+}
+
+.mythcraft-statblock .animated-rolls-slot-container {
+    background: transparent;
+    border-color: rgba(78, 153, 156, 0.6);
+    color: #FEEBB3;
+}
+
+.mythcraft-statblock .animated-rolls-container {
+    padding: 6px 8px;
+}
 .weapon-header-block {
     display: flex;
     flex-direction: column;

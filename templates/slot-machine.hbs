@@ -1,0 +1,10 @@
+<div class="animated-rolls-container {{style}}">
+  <div class="animated-rolls-slot-container">
+    {{#each dice}}
+    <div class="slot-window" data-final="{{this.result}}" data-faces="{{this.faces}}">
+      <div class="slot-display js-slot-display">{{this.result}}</div>
+    </div>
+    {{/each}}
+  </div>
+  <div class="animated-rolls-total"><span class="formula">{{formula}}</span> = <span class="total">{{total}}</span></div>
+</div>

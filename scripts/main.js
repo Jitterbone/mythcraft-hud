@@ -6,6 +6,152 @@ import { conditionTooltip } from './app/ConditionTooltip.js';
 
 let hudInstance;
 
+function extractDiceResults(message) {
+    const allDice = [];
+    for (const roll of message.rolls ?? []) {
+        for (const term of roll.terms ?? []) {
+            if (term.faces && Array.isArray(term.results)) {
+                for (const dieResult of term.results) {
+                    const result = dieResult.result;
+                    allDice.push({ faces: term.faces, result, isMax: result === term.faces, isMin: result === 1 });
+                }
+            }
+        }
+    }
+    return allDice;
+}
+
+async function renderAnimatedRolls(message, html) {
+    if (!message?.isRoll || !message.rolls?.length) return;
+    if (game.settings.get('mythcraft-hud', 'disableChatStyling')) return;
+
+    // Preserve the slot UI for existing chat cards, but only animate recent rolls.
+    const ts = Number(message.timestamp) || Date.parse(message.timestamp) || 0;
+    const isRecent = (Date.now() - ts) < 4000;
+    const shouldAnimate = isRecent;
+
+    const diceResults = extractDiceResults(message);
+    if (!diceResults.length) return;
+
+    const total = message.rolls.reduce((acc, roll) => acc + (roll.total ?? 0), 0);
+    const formula = message.rolls.map(roll => roll.formula).join(' + ');
+    const templateData = {
+        dice: diceResults,
+        total,
+        formula,
+        style: 'default',
+        isNew: shouldAnimate
+    };
+
+    const content = await foundry.applications.handlebars.renderTemplate('modules/mythcraft-hud/templates/slot-machine.hbs', templateData);
+
+    let rollResultEl = html.querySelector('.mythcraft-statblock .roll-result');
+    if (!rollResultEl) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'mythcraft-statblock';
+        wrapper.innerHTML = `
+            <div class="card-header">${message.flavor || 'Roll'}</div>
+            <div class="roll-result"></div>
+        `;
+        const target = html.querySelector('.message-content') || html;
+        target.innerHTML = '';
+        target.appendChild(wrapper);
+        rollResultEl = wrapper.querySelector('.roll-result');
+    }
+
+    // Replace the numeric display and formula inside the roll-result with the
+    // animation so it occupies the same visual area where the gold number appears.
+    // Keep the .roll-label intact.
+    const label = rollResultEl.querySelector('.roll-label');
+    rollResultEl.innerHTML = '';
+    if (label) rollResultEl.appendChild(label);
+    const frag = document.createRange().createContextualFragment(content);
+    rollResultEl.appendChild(frag);
+
+    // JS-driven animation: deterministic slot-like spin (constant speed then eased decel)
+    function animateSlotDisplays(container, dice) {
+        const windows = Array.from(container.querySelectorAll('.slot-window'));
+        // Shorter, smoother slot timings for a compact, even spin
+        const spinMs = 600; // initial constant-spin duration (ms)
+        const decelMs = 400; // deceleration duration (ms)
+        const staggerMs = 60; // stagger between reels (ms)
+
+        function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+        windows.forEach((win, i) => {
+            const faces = Math.max(1, Number(win.dataset.faces) || (dice[i]?.faces) || 20);
+            const final = Number(win.dataset.final) || Number(dice[i]?.result) || 0;
+            const display = win.querySelector('.js-slot-display');
+            if (!display) return;
+
+            const startTime = performance.now() + i * staggerMs;
+            const constantEnd = startTime + spinMs;
+            const decelEnd = constantEnd + decelMs;
+
+            display.classList.toggle('is-min', !!dice[i]?.isMin);
+            display.classList.toggle('is-max', !!dice[i]?.isMax);
+
+            // rotations per second during constant phase — higher rps but shorter durations
+            const rps = 4.5;
+
+            // compute currentSteps at constantEnd to align decel target
+            const currentStepsAtConstantEnd = Math.floor((spinMs / 1000) * faces * rps);
+
+            // additional full rotations during decel
+            const extraRotations = 2;
+            // compute target step index so final lands at the end of decel
+            const currentMod = currentStepsAtConstantEnd % faces;
+            const targetSteps = currentStepsAtConstantEnd + (extraRotations * faces) + ((final - 1 - currentMod + faces) % faces);
+
+            function frame(now) {
+                if (now < startTime) {
+                    requestAnimationFrame(frame);
+                    return;
+                }
+                if (now < constantEnd) {
+                    const elapsed = now - startTime;
+                    const steps = Math.floor((elapsed / 1000) * faces * rps);
+                    const value = (steps % faces) + 1;
+                    display.textContent = value;
+                    requestAnimationFrame(frame);
+                    return;
+                }
+                if (now < decelEnd) {
+                    const decelElapsed = now - constantEnd;
+                    const t = Math.min(1, decelElapsed / decelMs);
+                    const eased = easeOutCubic(t);
+                    const steps = Math.floor(currentStepsAtConstantEnd + (targetSteps - currentStepsAtConstantEnd) * eased);
+                    const value = (steps % faces) + 1;
+                    display.textContent = value;
+                    requestAnimationFrame(frame);
+                    return;
+                }
+                // finished
+                display.textContent = final;
+                display.classList.add('final');
+            }
+
+            requestAnimationFrame(frame);
+        });
+
+        // Reveal total after the longest reel finishes
+        const totalRevealMs = spinMs + decelMs + (windows.length - 1) * staggerMs + 50;
+        setTimeout(() => {
+            const totalEl = container.querySelector('.animated-rolls-total');
+            if (totalEl) totalEl.classList.add('visible');
+        }, totalRevealMs);
+    }
+
+    // Start JS animation only for recent rolls; preserve the slot UI on refresh without auto-rolling.
+    if (shouldAnimate) {
+        requestAnimationFrame(() => animateSlotDisplays(rollResultEl, diceResults));
+    } else {
+        rollResultEl.querySelectorAll('.js-slot-display').forEach(display => display.classList.add('final'));
+        const totalEl = rollResultEl.querySelector('.animated-rolls-total');
+        if (totalEl) totalEl.classList.add('visible');
+    }
+}
+
 Hooks.on("init", () => {
     // Wipe whatever the system defines
     CONFIG.statusEffects = [];
@@ -165,6 +311,10 @@ Hooks.on("init", () => {
         return { resultLabel, flavor };
     };
 
+    Hooks.on('renderChatMessageHTML', async (message, html) => {
+        await renderAnimatedRolls(message, html);
+    });
+
     // Intercept chat messages to style them with a custom card.
     // This uses the 'preCreateChatMessage' hook which is the modern, safe way to modify
     // chat message data before it is saved to the database.
@@ -271,6 +421,7 @@ Hooks.on("init", () => {
                         <div class="roll-label">${resultLabel}</div>
                         ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
                     </div>
+                    <div class="dice-roll"></div>
                     ${buttonHtml}
                 </div>`;
 
@@ -305,10 +456,7 @@ Hooks.on("init", () => {
                 }
             }
 
-            // Clear the rolls from the message data to prevent other modules (like Dice So Nice)
-            // from processing the roll a second time.
-            updateData.rolls = [];
-
+            // Preserve the roll data so native animation hooks can still render the effect.
             // Update the message source with our new data.
             message.updateSource(updateData);
         }

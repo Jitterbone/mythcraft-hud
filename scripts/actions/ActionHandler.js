@@ -634,7 +634,9 @@ export class ActionHandler {
             user: game.user.id,
             speaker: ChatMessage.getSpeaker({ actor: actor }),
             content: content,
-            sound: (roll && !muteDice) ? CONFIG.sounds.dice : null
+            sound: (roll && !muteDice) ? CONFIG.sounds.dice : null,
+            flavor: title,
+            ...(roll ? { rolls: [roll] } : {})
         };
 
         // V12+ replaced ChatMessage types with styles. V14 strictly enforces schemas.
