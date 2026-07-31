@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.9.2-hotfix] - 2024-08-01
+
+### Fixed
+- **Roll Animation**: Correctly display negative attribute modifiers in the roll animation. The bonus pill will now appear red and show a minus sign (e.g., `-1`) for negative values, and green with a plus sign for positive values.
+
 ## [0.9.9.1-beta] - 2024-07-31
 
 ### Fixed
