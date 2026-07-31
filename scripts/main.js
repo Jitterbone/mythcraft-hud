@@ -41,43 +41,36 @@ function extractRollBonus(message) {
     for (let roll of message.rolls ?? []) {
         roll = normalizeRollObject(roll);
         if (!roll) continue;
-
-        const bonusValue = roll?.options?.mythcraftBonusValue ?? null;
-        if (Number.isFinite(bonusValue) && bonusValue !== 0) {
+ 
+        // Priority 1: Use the bonus value explicitly set by our hooks. This is the most reliable.
+        if (Number.isFinite(roll?.options?.mythcraftBonusValue)) {
             return {
-                value: bonusValue,
-                text: roll?.options?.mythcraftBonusText || (bonusValue >= 0 ? `+${bonusValue}` : `${bonusValue}`)
+                value: roll.options.mythcraftBonusValue,
+                text: roll.options.mythcraftBonusText
             };
         }
-
+ 
+        // Priority 2: Manually calculate the bonus from all numeric terms in the roll.
+        // This is the robust fallback for rolls not originating from the HUD/patched methods.
         let constantBonus = 0;
+        let lastOperator = '+';
         for (const term of roll.terms ?? []) {
-            if (term.faces) continue;
-            const number = Number(term.number);
-            if (!Number.isFinite(number)) continue;
-            let sign = 1;
-            if (typeof term.operator === 'string') {
-                sign = term.operator.trim() === '-' ? -1 : 1;
+            if (term instanceof foundry.dice.terms.OperatorTerm) {
+                lastOperator = term.operator;
+            } else if (term instanceof foundry.dice.terms.NumericTerm) {
+                const value = Number(term.number);
+                if (!Number.isFinite(value)) continue;
+ 
+                if (lastOperator === '-') {
+                    constantBonus -= value;
+                } else {
+                    constantBonus += value;
+                }
             }
-            constantBonus += sign * number;
         }
-
+ 
         if (constantBonus !== 0) {
-            return {
-                value: constantBonus,
-                text: constantBonus >= 0 ? `+${constantBonus}` : `${constantBonus}`
-            };
-        }
-
-        const bonusMatch = (roll?.formula || '').match(/([+-])\s*(\d+)\s*$/);
-        if (bonusMatch) {
-            const value = parseInt(`${bonusMatch[1]}${bonusMatch[2]}`, 10);
-            if (value !== 0) {
-                return {
-                    value,
-                    text: value >= 0 ? `+${value}` : `${value}`
-                };
-            }
+            return { value: constantBonus, text: (constantBonus > 0 ? `+${constantBonus}` : `${constantBonus}`) };
         }
     }
     return null;
@@ -257,9 +250,11 @@ async function renderAnimatedRolls(message, html) {
             const primarySlotEl = container.querySelector('.slot-window:first-child .js-slot-display.final');
             const bonusEl = container.querySelector('.slot-bonus-pill');
             if (totalEl) totalEl.classList.add('visible');
-            if (bigValueEl) bigValueEl.textContent = total;
-            if (bonus && primarySlotEl && bonusEl) {
-                bonusEl.textContent = bonus.text;
+            if (bigValueEl) bigValueEl.textContent = total;            
+            if (bonus && bonus.value !== 0 && primarySlotEl && bonusEl) {
+                bonusEl.textContent = bonus.text; // Use the pre-formatted text from extractRollBonus
+                if (bonus.value < 0) bonusEl.classList.add('negative');
+                else if (bonus.value > 0) bonusEl.classList.add('positive');
                 bonusEl.classList.add('visible');
                 const bonusHold = 950;
                 const countDuration = 700;
@@ -288,8 +283,10 @@ async function renderAnimatedRolls(message, html) {
         const primarySlotEl = rollResultEl.querySelector('.slot-window:first-child .js-slot-display.final');
         if (totalEl) totalEl.classList.add('visible');
         if (bigValueEl) bigValueEl.textContent = total;
-        if (bonus && bonusEl) {
-            bonusEl.textContent = bonus.text;
+        if (bonus && bonus.value !== 0 && bonusEl) {
+            bonusEl.textContent = bonus.text; // Use the pre-formatted text
+            if (bonus.value < 0) bonusEl.classList.add('negative');
+            else if (bonus.value > 0) bonusEl.classList.add('positive');
             bonusEl.classList.add('visible');
             bonusEl.classList.add('merge');
             if (primarySlotEl) primarySlotEl.classList.add('pulse');
@@ -644,7 +641,10 @@ Hooks.on("init", () => {
             if (!roll.options.mythcraftBonusValue) {
                 const bonusTerm = roll.terms.find(t => t instanceof NumericTerm && !t.options.flavor);
                 if (bonusTerm) {
-                    const bonusValue = bonusTerm.number;
+                    // Correctly parse the bonus value, respecting its sign.
+                    // The term's operator is stored separately, so we need to combine them.
+                    const sign = (bonusTerm.operator || '+').trim() === '-' ? -1 : 1;
+                    const bonusValue = bonusTerm.number * sign;
                     roll.options.mythcraftBonusValue = bonusValue;
                     roll.options.mythcraftBonusText = (bonusValue >= 0 ? `+${bonusValue}` : `${bonusValue}`);
                 }
