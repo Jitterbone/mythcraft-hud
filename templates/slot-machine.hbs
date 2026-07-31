@@ -1,10 +1,17 @@
 <div class="animated-rolls-container {{style}}">
   <div class="animated-rolls-slot-container">
     {{#each dice}}
-    <div class="slot-window" data-final="{{this.result}}" data-faces="{{this.faces}}">
-      <div class="slot-display js-slot-display">{{this.result}}</div>
+    <div class="slot-window" data-final="{{#if this.display}}{{this.display}}{{else}}{{this.result}}{{/if}}" data-faces="{{this.faces}}">
+      <div class="slot-display js-slot-display">{{#if this.display}}{{this.display}}{{else}}{{this.result}}{{/if}}</div>
     </div>
     {{/each}}
+    <div class="slot-bonus-pill bonus-pill {{bonusClass}}" aria-hidden="true"></div>
   </div>
-  <div class="animated-rolls-total"><span class="formula">{{formula}}</span> = <span class="total">{{total}}</span></div>
+  <div class="animated-rolls-total">
+    <span class="formula">{{formula}}</span>
+  </div>
+  <div class="animated-rolls-details" aria-hidden="true">
+    <div class="detail-row"><span class="detail-label">Raw dice</span><span class="detail-value">{{rawDiceFormula}}</span></div>
+    <div class="detail-row"><span class="detail-label">Results</span><span class="detail-value">{{rawDiceResults}}</span></div>
+  </div>
 </div>

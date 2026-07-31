@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.9.1-beta] - 2024-07-31
+
+### Fixed
+- **Sheet Rolls**: Correctly trigger the modifier count-up animation for rolls made from the character sheet, ensuring visual consistency with rolls made from the HUD.
+- **Chat Card Clarity**: Removed redundant labels from chat cards and improved the title format for skill rolls to be more descriptive (e.g., `DEX Check (Stealth)`).
+- **Luck Points**: Correctly display Luck Points (`lp.value`) in the HUD instead of the Luck attribute modifier.
+
 ## [0.9.9-beta] - 2026-07-30
 
 ### Fixed

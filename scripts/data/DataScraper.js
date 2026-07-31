@@ -22,7 +22,28 @@ export class DataScraper {
             // Dynamic Attribute Pathing: Check for spell attribute or default to STR/INT logic
             const defaultAttr = i.type === "spell" ? (system.sp?.attribute || "int") : "str";
             const attrKey = (itemSystem.attr || defaultAttr).toLowerCase();
-            const attrVal = system.attributes?.[attrKey] ?? 0;
+            const candidateKeys = [attrKey];
+            if (attrKey === 'awa' || attrKey === 'awr') candidateKeys.push('awa', 'awr', 'awareness', 'per', 'perception', 'wis', 'wisdom');
+            if (attrKey === 'lck' || attrKey === 'luck') candidateKeys.push('lck', 'luck');
+
+            const searchRoots = [system.attributes, system.abilities, system.stats, system];
+            let rawAttr = 0;
+            for (const root of searchRoots) {
+                if (!root || typeof root !== 'object') continue;
+                const keys = Object.keys(root);
+                for (const key of candidateKeys) {
+                    const exact = keys.find(k => k.toLowerCase() === key);
+                    if (exact !== undefined) {
+                        rawAttr = root[exact];
+                        break;
+                    }
+                }
+                if (rawAttr !== 0 && rawAttr !== undefined) break;
+            }
+
+            const attrVal = (typeof rawAttr === 'object' && rawAttr !== null)
+                ? Number(rawAttr.value ?? rawAttr.mod ?? rawAttr.current ?? rawAttr.total ?? rawAttr.base ?? rawAttr.bonus) || 0
+                : Number(rawAttr) || 0;
             
             i.system.attrKey = attrKey.toUpperCase();
             i.system.attrVal = attrVal;

@@ -346,12 +346,71 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         const defenses = system.defenses || {};
         
         // Helper to get mod safely
+        const normalizeAttrValue = (value) => {
+            if (typeof value === 'object' && value !== null) {
+                const numericValue = Number(value.mod ?? value.value ?? value.points ?? value?.current ?? value?.total);
+                if (Number.isFinite(numericValue)) return numericValue;
+            }
+            const numeric = Number(value);
+            return Number.isFinite(numeric) ? numeric : 0;
+        };
+
         const findAttr = (...keys) => {
-            for (const k of keys) {
-                if (attributes[k] !== undefined) return Number(attributes[k]);
+            const candidateKeys = [];
+            for (const rawKey of keys) {
+                const lower = rawKey.toLowerCase().trim();
+                candidateKeys.push(lower);
+                if (['awa','awr','awareness','per','perception','wis','wisdom'].includes(lower)) {
+                    candidateKeys.push('awa','awr','awareness','per','perception','wis','wisdom');
+                }
+                if (['lck','luck'].includes(lower)) {
+                    candidateKeys.push('lck','luck','lp','points');
+                }
+                if (['str','strength'].includes(lower)) candidateKeys.push('str','strength');
+                if (['dex','dexterity','agi','agility'].includes(lower)) candidateKeys.push('dex','dexterity','agi','agility');
+                if (['con','constitution','end','endurance','stamina'].includes(lower)) candidateKeys.push('con','constitution','end','endurance','stamina');
+                if (['int','intelligence'].includes(lower)) candidateKeys.push('int','intelligence');
+                if (['cha','charisma'].includes(lower)) candidateKeys.push('cha','charisma');
+            }
+            const uniqueKeys = [...new Set(candidateKeys)];
+            const searchRoots = [attributes, system.attributes, system.abilities, system.stats, system];
+
+            for (const root of searchRoots) {
+                if (!root || typeof root !== 'object') continue;
+                const keys = Object.keys(root);
+                for (const candidate of uniqueKeys) {
+                    const exact = keys.find(k => k.toLowerCase() === candidate);
+                    if (exact !== undefined) {
+                        return normalizeAttrValue(root[exact]);
+                    }
+                }
+                for (const rootKey of keys) {
+                    const nested = root[rootKey];
+                    if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+                        const nestedKeys = Object.keys(nested);
+                        for (const candidate of uniqueKeys) {
+                            const exactNested = nestedKeys.find(k => k.toLowerCase() === candidate);
+                            if (exactNested !== undefined) {
+                                return normalizeAttrValue(nested[exactNested]);
+                            }
+                        }
+                    }
+                }
             }
             return 0;
         };
+
+        const findLuckPoints = () => {
+            const searchRoots = [attributes, system.attributes, system.abilities, system.stats, system];
+            for (const root of searchRoots) {
+                if (root?.lp?.value !== undefined) return normalizeAttrValue(root.lp.value);
+                if (root?.luck?.points !== undefined) return normalizeAttrValue(root.luck.points);
+                if (root?.luck?.lp !== undefined) return normalizeAttrValue(root.luck.lp);
+            }
+            // Fallback to the generic attribute finder if specific paths fail
+            return findAttr('lp', 'luckpoints');
+        };
+
         const formatMod = (val) => (val >= 0 ? "+" : "") + val;
 
         const pairs = [
@@ -360,7 +419,8 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             { id: 'end', label: 'END', val: findAttr('end','con','stamina'), defLabel: 'FORT', defVal: defenses.fort ?? (10 + findAttr('end','con','stamina')) },
             { id: 'int', label: 'INT', val: findAttr('int','intelligence'), defLabel: 'LOG', defVal: defenses.log ?? (10 + findAttr('int','intelligence')) },
             { id: 'awa', label: 'AWA', val: findAttr('awr','awa','per','perception'), defLabel: 'ANT', defVal: defenses.ant ?? (10 + findAttr('awr','awa','per','perception')) },
-            { id: 'cha', label: 'CHA', val: findAttr('cha','charisma'), defLabel: 'WILL', defVal: defenses.will ?? (10 + findAttr('cha','charisma')) }
+            { id: 'cha', label: 'CHA', val: findAttr('cha','charisma'), defLabel: 'WILL', defVal: defenses.will ?? (10 + findAttr('cha','charisma')) },
+            { id: 'lck', label: 'LCK', val: findAttr('lck','luck'), defLabel: 'PTS', defVal: findLuckPoints() }
         ];
         
         // Group Skills by Attribute

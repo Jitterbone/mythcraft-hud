@@ -37,37 +37,75 @@ export class ActionHandler {
 
     // Helper: Get attribute value from actor
     static getAttributeValue(actor, attributeKey) {
-        if (!attributeKey) return 0;
-        const attributes = actor.system.attributes || {};
-        const key = attributeKey.toLowerCase();
+        if (!attributeKey || !actor?.system) return 0;
+        const system = actor.system || {};
+        const key = attributeKey.toLowerCase().trim();
 
-        // Direct match first (e.g., 'str', 'dex')
-        if (attributes[key] !== undefined) return attributes[key];
-
-        // Alias map, mapping various inputs to the canonical key (e.g., 'strength' -> 'str')
-        const canonicalMap = {
-            'strength': 'str',
-            'dexterity': 'dex', 'agi': 'dex', 'agility': 'dex',
-            'constitution': 'con', 'end': 'con', 'endurance': 'con', 'stamina': 'con',
-            'intelligence': 'int',
-            'awareness': 'awa', 'per': 'awa', 'perception': 'awa', 'wis': 'awa', 'wisdom': 'awa',
-            'charisma': 'cha',
-            'luck': 'lck'
+        const normalizeValue = (value) => {
+            if (typeof value === 'object' && value !== null) {
+                const numericValue = Number(value.mod ?? value.value ?? value.current ?? value.total ?? value.base ?? value.bonus);
+                if (Number.isFinite(numericValue)) return numericValue;
+            }
+            const numeric = Number(value);
+            return Number.isFinite(numeric) ? numeric : null;
         };
 
-        const canonicalKey = canonicalMap[key];
-        if (canonicalKey && attributes[canonicalKey] !== undefined) {
-            return attributes[canonicalKey];
-        }
-        
-        // If the input was a canonical key itself (e.g. 'dex'), check its full-name aliases
-        const reverseAliasMap = { 'dex': ['dexterity', 'agility'], 'con': ['endurance'], 'awa': ['awareness', 'perception'] };
-        const aliases = reverseAliasMap[key] || [];
-        for (const alias of aliases) {
-            if (attributes[alias] !== undefined) return attributes[alias];
+        const unifyKeys = (input) => {
+            const keys = [input.toLowerCase().trim()];
+            const normalized = keys[0];
+            if (['awa','awr','awareness','per','perception','wis','wisdom'].includes(normalized)) {
+                keys.push('awa','awr','awareness','per','perception','wis','wisdom');
+            } else if (['lck','luck'].includes(normalized)) {
+                keys.push('lck','luck');
+            } else if (['str','strength'].includes(normalized)) {
+                keys.push('str','strength');
+            } else if (['dex','dexterity','agi','agility'].includes(normalized)) {
+                keys.push('dex','dexterity','agi','agility');
+            } else if (['con','constitution','end','endurance','stamina'].includes(normalized)) {
+                keys.push('con','constitution','end','endurance','stamina');
+            } else if (['int','intelligence'].includes(normalized)) {
+                keys.push('int','intelligence');
+            } else if (['cha','charisma'].includes(normalized)) {
+                keys.push('cha','charisma');
+            }
+            return [...new Set(keys)];
+        };
+
+        const searchRoot = (root, candidates) => {
+            if (!root || typeof root !== 'object') return null;
+            if (Array.isArray(root)) return null;
+            const keys = Object.keys(root);
+            for (const candidate of candidates) {
+                const exactKey = keys.find(k => k.toLowerCase() === candidate);
+                if (exactKey !== undefined) {
+                    const found = normalizeValue(root[exactKey]);
+                    if (found !== null) return found;
+                }
+            }
+            for (const key of keys) {
+                const nested = root[key];
+                if (nested && typeof nested === 'object' && !Array.isArray(nested)) {
+                    const nestedKeys = Object.keys(nested);
+                    for (const candidate of candidates) {
+                        const exactNestedKey = nestedKeys.find(k => k.toLowerCase() === candidate);
+                        if (exactNestedKey !== undefined) {
+                            const found = normalizeValue(nested[exactNestedKey]);
+                            if (found !== null) return found;
+                        }
+                    }
+                }
+            }
+            return null;
+        };
+
+        const searchKeys = unifyKeys(key);
+        const roots = [system.attributes, system.abilities, system.stats, system];
+        for (const root of roots) {
+            const found = searchRoot(root, searchKeys);
+            if (found !== null) return found;
         }
 
-        return 0; // Return 0 if no match is found, removing the dangerous fuzzy match
+        return 0;
     }
 
     // Helper: Scrape damage/effect info from description
@@ -310,6 +348,8 @@ export class ActionHandler {
         // Apply Tactical Modifiers to the roll formula
         let roll = null;
         let isCrit = false;
+        let bonusValue = 0;
+        let bonusText = "";
         if (shouldRoll) {
             if (bonus !== "") {
                 const ta = options.ta || 0;
@@ -317,6 +357,8 @@ export class ActionHandler {
                 const modBonus = parseInt(bonus) + ta - td;
                 const modBonusStr = (modBonus >= 0 ? "+" : "") + modBonus;
                 roll = new Roll(`1d20${modBonusStr}`);
+                bonusValue = modBonus;
+                bonusText = modBonusStr;
             } else {
                 roll = new Roll(`1d20`);
             }
@@ -328,6 +370,13 @@ export class ActionHandler {
         }
 
         if (roll) {
+            if (bonusValue || bonusText) {
+                roll.options = {
+                    ...(roll.options ?? {}),
+                    mythcraftBonusValue: bonusValue,
+                    mythcraftBonusText: bonusText
+                };
+            }
             await roll.evaluate();
             
             // Detect Crit for Damage Automation
@@ -613,12 +662,12 @@ export class ActionHandler {
         // Roll Result
         if (roll) {
             const resultBlock = `
+                <div class="roll-label">${resultLabel}</div>
                 <div class="roll-value">${roll.total}</div>
                 <div class="roll-formula">${roll.formula}</div>
             `;
             content += `
                 <div class="roll-result ${resultClass}">
-                    <div class="roll-label" style="color: #d3c4a3;">${resultLabel}</div>
                     ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
                 </div>`;
         }
@@ -698,17 +747,18 @@ export class ActionHandler {
         const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
 
         // Construct roll formula: 1d20 + skill bonus
-        const formula = `1d20 + ${bonus}`;
+        const formula = `1d20${bonus >= 0 ? ' + ' : ' - '}${Math.abs(bonus)}`;
         const roll = new Roll(formula, actor.getRollData());
         
         await roll.evaluate();
         
+        const title = `${skillName} Check`;
+        
         // Use createProfessionalChatCard directly for consistent styling
         await this.createProfessionalChatCard({
             actor: actor,
-            title: `${skillName} Check`,
+            title: title, // This will be reformatted by getRollContext
             roll: roll,
-            label: "SKILL CHECK",
             isSpell: false
         });
     }
@@ -752,9 +802,8 @@ export class ActionHandler {
         // Use createProfessionalChatCard directly for consistent styling
         await this.createProfessionalChatCard({
             actor: actor,
-            title: `${attrName} Check`,
+            title: `${attrName} Check`, // This will be reformatted by getRollContext
             roll: roll,
-            label: "ATTRIBUTE CHECK",
             isSpell: false
         });
     }

@@ -6,9 +6,25 @@ import { conditionTooltip } from './app/ConditionTooltip.js';
 
 let hudInstance;
 
+function normalizeRollObject(roll) {
+    if (!roll) return null;
+    if (typeof roll === 'string') {
+        try { return Roll.fromData(JSON.parse(roll)); } catch (e) {
+            try { return Roll.fromData(roll); } catch (e2) {
+                return null;
+            }
+        }
+    }
+    if (roll instanceof Roll) return roll;
+    try { return Roll.fromData(roll); } catch (e) { return null; }
+}
+
 function extractDiceResults(message) {
     const allDice = [];
-    for (const roll of message.rolls ?? []) {
+    for (let roll of message.rolls ?? []) {
+        roll = normalizeRollObject(roll);
+        if (!roll) continue;
+
         for (const term of roll.terms ?? []) {
             if (term.faces && Array.isArray(term.results)) {
                 for (const dieResult of term.results) {
@@ -21,24 +37,96 @@ function extractDiceResults(message) {
     return allDice;
 }
 
+function extractRollBonus(message) {
+    for (let roll of message.rolls ?? []) {
+        roll = normalizeRollObject(roll);
+        if (!roll) continue;
+
+        const bonusValue = roll?.options?.mythcraftBonusValue ?? null;
+        if (Number.isFinite(bonusValue) && bonusValue !== 0) {
+            return {
+                value: bonusValue,
+                text: roll?.options?.mythcraftBonusText || (bonusValue >= 0 ? `+${bonusValue}` : `${bonusValue}`)
+            };
+        }
+
+        let constantBonus = 0;
+        for (const term of roll.terms ?? []) {
+            if (term.faces) continue;
+            const number = Number(term.number);
+            if (!Number.isFinite(number)) continue;
+            let sign = 1;
+            if (typeof term.operator === 'string') {
+                sign = term.operator.trim() === '-' ? -1 : 1;
+            }
+            constantBonus += sign * number;
+        }
+
+        if (constantBonus !== 0) {
+            return {
+                value: constantBonus,
+                text: constantBonus >= 0 ? `+${constantBonus}` : `${constantBonus}`
+            };
+        }
+
+        const bonusMatch = (roll?.formula || '').match(/([+-])\s*(\d+)\s*$/);
+        if (bonusMatch) {
+            const value = parseInt(`${bonusMatch[1]}${bonusMatch[2]}`, 10);
+            if (value !== 0) {
+                return {
+                    value,
+                    text: value >= 0 ? `+${value}` : `${value}`
+                };
+            }
+        }
+    }
+    return null;
+}
+
+function normalizeRollFlavor(flavor) {
+    if (!flavor) return flavor;
+    const attrNames = { str: "Strength", dex: "Dexterity", end: "Endurance", int: "Intelligence", awa: "Awareness", cha: "Charisma", lck: "Luck", lp: "Luck" };
+    return flavor.replace(/\b(STR|DEX|END|INT|AWA|CHA|LCK|LP)\b/gi, match => attrNames[match.toLowerCase()] || match);
+}
+
 async function renderAnimatedRolls(message, html) {
-    if (!message?.isRoll || !message.rolls?.length) return;
+    if (!message.rolls?.length) return;
     if (game.settings.get('mythcraft-hud', 'disableChatStyling')) return;
 
     // Preserve the slot UI for existing chat cards, but only animate recent rolls.
     const ts = Number(message.timestamp) || Date.parse(message.timestamp) || 0;
-    const isRecent = (Date.now() - ts) < 4000;
-    const shouldAnimate = isRecent;
+    const shouldAnimate = ts === 0 || ((Date.now() - ts) < 4000);
 
-    const diceResults = extractDiceResults(message);
+    const normalizedRolls = message.rolls
+        .map(normalizeRollObject)
+        .filter(roll => roll && (!roll.terms || roll.terms.length));
+    if (!normalizedRolls.length) return;
+
+    const diceResults = extractDiceResults({ rolls: normalizedRolls });
     if (!diceResults.length) return;
 
-    const total = message.rolls.reduce((acc, roll) => acc + (roll.total ?? 0), 0);
-    const formula = message.rolls.map(roll => roll.formula).join(' + ');
+    const total = normalizedRolls.reduce((acc, roll) => acc + (roll.total ?? 0), 0);
+    const formula = normalizedRolls.map(roll => roll.formula).join(' + ');
+    const rawDiceFormula = normalizedRolls.map(roll => {
+        const diceTerms = (roll.terms || []).filter(term => Number.isFinite(term.faces));
+        if (!diceTerms.length) return roll.formula;
+        return diceTerms.map(term => `${term.number || 1}d${term.faces}`).join(' + ');
+    }).join(' + ');
+    const rawDiceResults = diceResults.map(d => `${d.result}`).join(', ');
+    const bonus = extractRollBonus({ rolls: normalizedRolls });
+    const baseTotal = bonus ? total - bonus.value : total;
+    if (!shouldAnimate && diceResults.length > 0) {
+        diceResults[0].display = total;
+    }
     const templateData = {
         dice: diceResults,
         total,
+        baseTotal,
         formula,
+        rawDiceFormula,
+        rawDiceResults,
+        bonus,
+        bonusClass: bonus ? (bonus.value < 0 ? 'negative' : 'positive') : '',
         style: 'default',
         isNew: shouldAnimate
     };
@@ -61,19 +149,32 @@ async function renderAnimatedRolls(message, html) {
 
     // Replace the numeric display and formula inside the roll-result with the
     // animation so it occupies the same visual area where the gold number appears.
-    // Keep the .roll-label intact.
-    const label = rollResultEl.querySelector('.roll-label');
     rollResultEl.innerHTML = '';
-    if (label) rollResultEl.appendChild(label);
     const frag = document.createRange().createContextualFragment(content);
     rollResultEl.appendChild(frag);
 
+    const animatedContainer = rollResultEl.querySelector('.animated-rolls-container');
+    if (animatedContainer && !animatedContainer.dataset.expandListener) {
+        animatedContainer.dataset.expandListener = 'true';
+        animatedContainer.style.cursor = 'pointer';
+        animatedContainer.addEventListener('click', (event) => {
+            if (event.target.closest('.slot-window') || event.target.closest('.slot-bonus-pill')) return;
+            animatedContainer.classList.toggle('expanded');
+        });
+    }
+
     // JS-driven animation: deterministic slot-like spin (constant speed then eased decel)
     function animateSlotDisplays(container, dice) {
+        const totalDuration = game.settings.get('mythcraft-hud', 'rollAnimationDuration');
+
         const windows = Array.from(container.querySelectorAll('.slot-window'));
-        // Shorter, smoother slot timings for a compact, even spin
-        const spinMs = 600; // initial constant-spin duration (ms)
-        const decelMs = 400; // deceleration duration (ms)
+
+        // The spin phase will be ~60% of the total duration, and deceleration the remaining ~40%.
+        // This maintains a nice visual rhythm across different durations.
+        const spinMs = totalDuration * 0.6;
+        const decelMs = totalDuration * 0.4;
+
+        // Stagger between reels remains constant
         const staggerMs = 60; // stagger between reels (ms)
 
         function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
@@ -134,11 +235,45 @@ async function renderAnimatedRolls(message, html) {
             requestAnimationFrame(frame);
         });
 
-        // Reveal total after the longest reel finishes
+        function animateNumber(element, from, to, duration) {
+            const delta = to - from;
+            const startTime = performance.now();
+            function frame(now) {
+                const elapsed = Math.min(duration, now - startTime);
+                const progress = elapsed / duration;
+                const value = Math.round(from + delta * progress);
+                element.textContent = value;
+                if (elapsed < duration) {
+                    requestAnimationFrame(frame);
+                }
+            }
+            requestAnimationFrame(frame);
+        }
+
         const totalRevealMs = spinMs + decelMs + (windows.length - 1) * staggerMs + 50;
         setTimeout(() => {
             const totalEl = container.querySelector('.animated-rolls-total');
+            const bigValueEl = container.querySelector('.animated-rolls-big-value');
+            const primarySlotEl = container.querySelector('.slot-window:first-child .js-slot-display.final');
+            const bonusEl = container.querySelector('.slot-bonus-pill');
             if (totalEl) totalEl.classList.add('visible');
+            if (bigValueEl) bigValueEl.textContent = total;
+            if (bonus && primarySlotEl && bonusEl) {
+                bonusEl.textContent = bonus.text;
+                bonusEl.classList.add('visible');
+                const bonusHold = 950;
+                const countDuration = 700;
+                setTimeout(() => {
+                    bonusEl.classList.add('merge');
+                    animateNumber(primarySlotEl, Number(primarySlotEl.textContent) || 0, total, countDuration);
+                    primarySlotEl.classList.add('pulse');
+                    setTimeout(() => {
+                        bonusEl.classList.remove('visible');
+                        bonusEl.classList.remove('merge');
+                        primarySlotEl.classList.remove('pulse');
+                    }, countDuration + 120);
+                }, bonusHold);
+            }
         }, totalRevealMs);
     }
 
@@ -148,7 +283,22 @@ async function renderAnimatedRolls(message, html) {
     } else {
         rollResultEl.querySelectorAll('.js-slot-display').forEach(display => display.classList.add('final'));
         const totalEl = rollResultEl.querySelector('.animated-rolls-total');
+        const bigValueEl = rollResultEl.querySelector('.animated-rolls-big-value');
+        const bonusEl = rollResultEl.querySelector('.slot-bonus-pill');
+        const primarySlotEl = rollResultEl.querySelector('.slot-window:first-child .js-slot-display.final');
         if (totalEl) totalEl.classList.add('visible');
+        if (bigValueEl) bigValueEl.textContent = total;
+        if (bonus && bonusEl) {
+            bonusEl.textContent = bonus.text;
+            bonusEl.classList.add('visible');
+            bonusEl.classList.add('merge');
+            if (primarySlotEl) primarySlotEl.classList.add('pulse');
+            setTimeout(() => {
+                bonusEl.classList.remove('visible');
+                bonusEl.classList.remove('merge');
+                if (primarySlotEl) primarySlotEl.classList.remove('pulse');
+            }, 250);
+        }
     }
 }
 
@@ -196,6 +346,20 @@ Hooks.on("init", () => {
         }
     });
 
+    game.settings.register('mythcraft-hud', 'rollAnimationDuration', {
+        name: "Roll Animation Duration (ms)",
+        hint: "Adjust the total duration of the dice roll animation in milliseconds. Higher is slower and more suspenseful.",
+        scope: "client",
+        config: true,
+        type: Number,
+        range: {
+            min: 500,
+            max: 3000,
+            step: 100
+        },
+        default: 1300, // The previous "Normal" speed
+    });
+
     game.settings.register('mythcraft-hud', 'disableDiceSounds', {
         name: "Disable Dice Sounds",
         hint: "Mute the sound effect when rolling dice through the HUD.",
@@ -230,23 +394,41 @@ Hooks.on("init", () => {
 
     // Template override for chat messages
     // Helper function to determine the label and flavor for a roll.
+    const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck", lp: "Luck" };
+    const _attributeKeyFromFlavor = (rawFlavor) => {
+        const lower = (rawFlavor || "").toLowerCase();
+        for (const [key, value] of Object.entries(attrNames)) {
+            if (new RegExp(`\\b(?:${key}|${value.toLowerCase()})\\b`).test(lower)) {
+                return key === 'lp' ? 'lck' : key;
+            }
+        }
+        return null;
+    };
+    const _normalizeAttributeFlavorText = (rawFlavor) => {
+        if (!rawFlavor) return rawFlavor;
+        return rawFlavor.replace(/\b(STR|DEX|END|INT|AWA|CHA|LCK|LP)\b/gi, match => attrNames[match.toLowerCase()] || match);
+    };
+    const _formatAttributeFlavor = (rawFlavor, attrKey) => {
+        const key = attrKey || _attributeKeyFromFlavor(rawFlavor);
+        if (!key) return _normalizeAttributeFlavorText((rawFlavor || "").trim());
+        const fullName = attrNames[key];
+        if (!fullName) return _normalizeAttributeFlavorText((rawFlavor || "").trim());
+        return `${fullName} Check`;
+    };
+
     const _getRollContext = (flavor, formula, rollOptions = {}, roll = {}) => {
         let resultLabel = "SYSTEM ROLL";
-        const flavorLower = flavor.toLowerCase();
+        let normalizedFlavor = (flavor || "").trim();
+        const flavorLower = normalizedFlavor.toLowerCase();
 
         // New check for specific roll class from Mythcraft system
         if (roll.class === "AttributeRoll") {
             resultLabel = "ATTRIBUTE CHECK";
             const attrKey = roll.options?.attribute?.toLowerCase();
             if (attrKey) {
-                const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck" };
-                const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
-                // Use the flavor from the roll if it's more specific than a generic "Check"
-                if (!flavor || flavor.toLowerCase() === "roll" || flavor.toLowerCase() === "system roll" || flavor.toLowerCase().endsWith(" check")) {
-                    flavor = `${fullName} Check`;
-                }
+                normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
             }
-            return { resultLabel, flavor };
+            return { resultLabel, flavor: normalizedFlavor || "Attribute Check" };
         }
 
         // Attribute list for keyword detection
@@ -264,54 +446,99 @@ Hooks.on("init", () => {
             resultLabel = rollOptions.flavor ? `${rollOptions.flavor.toUpperCase()} DAMAGE` : "DAMAGE ROLL";
         } else if (rollOptions.attribute) {
             const attrKey = rollOptions.attribute.toLowerCase();
-            const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck" };
-            const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
+            normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
             resultLabel = "ATTRIBUTE CHECK";
-            if (!flavor || flavor === "Roll" || flavor === "System Roll") {
-                flavor = `${fullName} Check`;
-            }
         } else if (attrMatch) {
             const attrKey = attrMatch[2].toLowerCase();
-            const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck" };
-            const fullName = attrNames[attrKey] || attrKey.charAt(0).toUpperCase() + attrKey.slice(1);
+            normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
             resultLabel = "ATTRIBUTE CHECK";
-            if (!flavor || flavor === "Roll" || flavor === "System Roll") {
-                flavor = `${fullName} Check`;
-            }
         } else if (skillMatch) {
             const skillKey = skillMatch[1].toLowerCase();
             const skillName = skillKey.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
             resultLabel = "SKILL CHECK";
-            if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
-                flavor = `${skillName} Check`;
+            if (!normalizedFlavor || normalizedFlavor === "Roll" || normalizedFlavor === "System Roll" || normalizedFlavor.trim() === "") {
+                normalizedFlavor = `${skillName} Check`;
             }
         } else if (saveMatch) {
             const saveKey = saveMatch[1].toLowerCase();
             const saveName = saveKey.charAt(0).toUpperCase() + saveKey.slice(1);
             resultLabel = "SAVE CHECK";
-            if (!flavor || flavor === "Roll" || flavor === "System Roll" || flavor.trim() === "") {
-                flavor = `${saveName} Save`;
+            if (!normalizedFlavor || normalizedFlavor === "Roll" || normalizedFlavor === "System Roll" || normalizedFlavor.trim() === "") {
+                normalizedFlavor = `${saveName} Save`;
             }
-        } else if (flavorLower.includes("attribute") || flavorLower.includes("ability")) {
+        } else if (normalizedFlavor.includes("attribute") || normalizedFlavor.includes("ability")) {
             resultLabel = "ATTRIBUTE CHECK";
-        } else if (flavorLower.includes("save")) {
+        } else if (normalizedFlavor.includes("save")) {
             resultLabel = "SAVE CHECK";
-        } else if (flavorLower.includes("skill")) {
+        } else if (normalizedFlavor.includes("skill")) {
             resultLabel = "SKILL CHECK";
-        } else if (flavorLower.includes("attack")) {
-            resultLabel = flavor.includes("damage") ? "DAMAGE ROLL" : "ATTACK ROLL";
+        } else if (normalizedFlavor.includes("attack")) {
+            resultLabel = normalizedFlavor.includes("damage") ? "DAMAGE ROLL" : "ATTACK ROLL";
         } else if (attributes.some(a => flavorLower.includes(a))) {
             resultLabel = "ATTRIBUTE CHECK";
-        } else if (flavorLower.includes("check")) {
+            const attrKey = _attributeKeyFromFlavor(normalizedFlavor);
+            if (attrKey) normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
+        } else if (normalizedFlavor.toLowerCase().includes("check")) {
             resultLabel = "ATTRIBUTE CHECK";
-        } else if (flavor) {
-            resultLabel = flavor.toUpperCase();
+        } else if (normalizedFlavor) {
+            resultLabel = normalizedFlavor.toUpperCase();
         }
 
-        return { resultLabel, flavor };
+        normalizedFlavor = _normalizeAttributeFlavorText(normalizedFlavor);
+        return { resultLabel, flavor: normalizedFlavor || resultLabel };
+    };
+
+    window.MythcraftHUD_getRollContext = _getRollContext; // Expose for ActionHandler
+
+    const _styleChatMessage = (message, html) => {
+        if (game.settings.get('mythcraft-hud', 'disableChatStyling')) return false;
+        if (!message?.rolls?.length) return false;
+
+        let roll = message.rolls[0];
+        if (typeof roll === 'string') {
+            try { roll = Roll.fromData(JSON.parse(roll)); } catch (e) {
+                try { roll = Roll.fromData(roll); } catch (e2) {
+                    console.warn('Mythcraft HUD | Could not parse roll data from string.', e2);
+                    return false;
+                }
+            }
+        }
+        if (!roll) return false;
+
+        const total = roll.total ?? 0;
+        const formula = roll.formula || '';
+        const initialFlavor = normalizeRollFlavor(message.flavor || roll.options?.flavor || '');
+        const { flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
+
+        const normalizedFlavor = normalizeRollFlavor(flavor);
+        const existingCard = html.querySelector('.mythcraft-statblock');
+        const isBlind = message.blind;
+        const resultBlock = `
+                <div class="roll-value">${total}</div>
+                <div class="roll-formula">${formula}</div>
+            `;
+        if (existingCard) {
+            const headerEl = existingCard.querySelector('.card-header');
+            if (headerEl && headerEl.textContent.trim() !== normalizedFlavor) headerEl.textContent = normalizedFlavor;
+            return true;
+        }
+
+        const target = html.querySelector('.message-content') || html;
+        const newContent = `
+                <div class="mythcraft-statblock">
+                    <div class="card-header">${flavor}</div>
+                    <div class="roll-result">
+                        ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
+                    </div>
+                    <div class="dice-roll"></div>
+                </div>`;
+
+        target.innerHTML = newContent;
+        return true;
     };
 
     Hooks.on('renderChatMessageHTML', async (message, html) => {
+        _styleChatMessage(message, html);
         await renderAnimatedRolls(message, html);
     });
 
@@ -379,10 +606,15 @@ Hooks.on("init", () => {
 
             const total = roll.total;
             const formula = roll.formula;
-            const initialFlavor = d.flavor || roll.options?.flavor || "";
+            const initialFlavor = normalizeRollFlavor(d.flavor || roll.options?.flavor || "");
             let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
+            flavor = normalizeRollFlavor(flavor);
 
-            let resultClass = "";
+            // If the roll is coming from our ActionHandler, it won't have the rich context.
+            // We re-run the context getter here to ensure the title is always correct.
+            const handlerContext = window.MythcraftHUD_getRollContext(d.flavor, formula, roll.options, roll);
+            flavor = handlerContext.flavor;
+
             let buttonHtml = "";
 
             // Add Apply Damage/Healing buttons based on roll context.
@@ -408,6 +640,16 @@ Hooks.on("init", () => {
                 }
             }
 
+            // Ensure the bonus is always available for animation, even on sheet rolls.
+            if (!roll.options.mythcraftBonusValue) {
+                const bonusTerm = roll.terms.find(t => t instanceof NumericTerm && !t.options.flavor);
+                if (bonusTerm) {
+                    const bonusValue = bonusTerm.number;
+                    roll.options.mythcraftBonusValue = bonusValue;
+                    roll.options.mythcraftBonusText = (bonusValue >= 0 ? `+${bonusValue}` : `${bonusValue}`);
+                }
+            }
+
             // Prepare the custom HTML for the chat card.
             const isBlind = d.blind;
             const resultBlock = `
@@ -418,7 +660,6 @@ Hooks.on("init", () => {
                 <div class="mythcraft-statblock">
                     <div class="card-header">${flavor}</div>
                     <div class="roll-result ${resultClass}">
-                        <div class="roll-label">${resultLabel}</div>
                         ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
                     </div>
                     <div class="dice-roll"></div>

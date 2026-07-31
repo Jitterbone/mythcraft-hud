@@ -1,12 +1,26 @@
 /* Embedded animations CSS copied and adapted from Animated Chat Rolls */
 .animated-rolls-container{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;margin:0;border-radius:5px}
-.animated-rolls-total{font-size:.92rem;color:#FEEBB3;border-top:none;width:auto;text-align:center;padding-top:2px;margin:0;font-weight:700;opacity:0;line-height:1.2;transition:opacity .3s ease-in}
-.animated-rolls-total .formula{font-family:monospace;font-size:.82rem;color:rgba(255,255,255,.8)}
-.animated-rolls-total .total{font-family:var(--font-primary,inherit)}
+.animated-rolls-total{font-size:.92rem;color:#FEEBB3;border-top:none;width:auto;text-align:center;padding-top:2px;margin:0;font-weight:700;opacity:0;line-height:1.2;transition:opacity .3s ease-in;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
+.animated-rolls-total .formula{font-family:monospace;font-size:.82rem;color:rgba(255,255,255,.8);margin:0}
+.animated-rolls-total .animated-rolls-big-value{font-size:1.5rem;font-weight:800;color:#FEEBB3;display:inline-flex;min-width:1.4em;text-align:center;align-items:center;justify-content:center;}
+.animated-rolls-details{width:100%;max-height:0;overflow:hidden;opacity:0;transition:max-height .25s ease,opacity .25s ease;margin-top:6px;}
+.animated-rolls-container.expanded .animated-rolls-details{max-height:120px;opacity:1;}
+.animated-rolls-details .detail-row{display:flex;justify-content:space-between;gap:0.5rem;padding:4px 8px;border-top:1px solid rgba(255,255,255,.08);font-size:.78rem;color:rgba(255,255,255,.85);}
+.animated-rolls-details .detail-label{font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9bd7e5}
+.animated-rolls-details .detail-value{white-space:normal;text-align:right;flex:1;}
+.animated-rolls-total .bonus-pill{display:none}
+.slot-bonus-pill{position:absolute;top:-8px;right:-12px;z-index:2;display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border-radius:999px;background:linear-gradient(135deg,#2e8555,#37b778);color:#fff;font-size:.82rem;font-weight:700;letter-spacing:.02em;opacity:0;transform:translateY(-4px) translateX(6px) scale(.85);transition:opacity .32s ease,transform .42s ease;box-shadow:0 4px 14px rgba(0,0,0,.28)}
+.slot-bonus-pill.negative{background:linear-gradient(135deg,#c0392b,#e74c3c)}
+.slot-bonus-pill.visible{opacity:1;transform:translateY(0) translateX(0) scale(1)}
+.slot-bonus-pill.merge{opacity:0;transform:translateY(-18px) translateX(6px) scale(.3)}
+.slot-window .pulse{animation:pulse-scale 0.26s ease-in-out both}
 .animated-rolls-total.visible{opacity:1}
-.animated-rolls-slot-container{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;overflow:hidden;height:auto;background:rgba(10,16,20,.92);border:1px solid rgba(42,122,127,0.85);border-radius:8px;color:#FEEBB3;font-weight:700;font-size:20px;padding:4px 6px;max-width:min(100%,360px)}
-.slot-window{min-width:44px;height:36px;overflow:hidden;display:flex;align-items:center}
+
+@keyframes pulse-scale{0%{transform:scale(1)}50%{transform:scale(1.12)}100%{transform:scale(1)}}
+.animated-rolls-slot-container{position:relative;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;overflow:visible;height:auto;background:rgba(10,16,20,.92);border:1px solid rgba(42,122,127,0.85);border-radius:8px;color:#FEEBB3;font-weight:700;font-size:20px;padding:4px 6px;max-width:min(100%,360px)}
+.slot-window{min-width:44px;height:36px;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .slot-result{position:relative}
+.mythcraft-statblock .roll-result{overflow:visible}
 .mythcraft-statblock .js-slot-display.is-min.final { color: #ff5e57; text-shadow: 0 0 10px rgba(255, 94, 87, 0.85), 0 0 20px rgba(255, 94, 87, 0.55); }
 .mythcraft-statblock .js-slot-display.is-max.final { color: #39d98a; text-shadow: 0 0 10px rgba(57, 217, 138, 0.85), 0 0 20px rgba(57, 217, 138, 0.55); }
 /* Style the central numeric result to match the HUD gold block */
@@ -26,11 +40,14 @@
 }
 
 .mythcraft-statblock .animated-rolls-container{display:flex;flex-direction:column;align-items:center;gap:4px;padding:0;margin:0;border-radius:5px}
-.mythcraft-statblock .animated-rolls-total{font-size:.92rem;color:#FEEBB3;border-top:none;width:auto;text-align:center;padding-top:2px;margin:0;font-weight:700;opacity:0;line-height:1.2;transition:opacity .3s ease-in}
-.mythcraft-statblock .animated-rolls-total .formula{font-family:monospace;font-size:.82rem;color:rgba(255,255,255,.8)}
+.mythcraft-statblock .animated-rolls-total{font-size:.92rem;color:#FEEBB3;border-top:none;width:auto;text-align:center;padding-top:2px;margin:0;font-weight:700;opacity:0;line-height:1.2;transition:opacity .3s ease-in;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;position:relative}
+.mythcraft-statblock .animated-rolls-total .formula{font-family:monospace;font-size:.82rem;color:rgba(255,255,255,.8);margin:0}
 .mythcraft-statblock .animated-rolls-total .total{font-family:var(--font-primary,inherit)}
+.mythcraft-statblock .animated-rolls-total .bonus-pill{display:inline-flex;align-items:center;justify-content:center;padding:2px 6px;border-radius:999px;background:linear-gradient(135deg,#2e8555,#37b778);color:#fff;font-size:.72rem;font-weight:700;letter-spacing:.02em;opacity:0;transform:translateY(6px) scale(.8);transition:opacity .2s ease,transform .28s ease;box-shadow:0 4px 10px rgba(0,0,0,.25)}
+.mythcraft-statblock .animated-rolls-total .bonus-pill.visible{opacity:1;transform:translateY(0) scale(1)}
+.mythcraft-statblock .animated-rolls-total .bonus-pill.merge{opacity:0;transform:translateY(-6px) scale(.3)}
 .mythcraft-statblock .animated-rolls-total.visible{opacity:1}
-.mythcraft-statblock .animated-rolls-slot-container{display:flex;gap:8px;justify-content:center;overflow:hidden;height:auto;background:rgba(10,16,20,.92);border:1px solid rgba(42,122,127,0.85);border-radius:8px;color:#FEEBB3;font-weight:700;font-size:20px;padding:4px 6px}
+.mythcraft-statblock .animated-rolls-slot-container{display:flex;gap:8px;justify-content:center;overflow:visible;height:auto;background:rgba(10,16,20,.92);border:1px solid rgba(42,122,127,0.85);border-radius:8px;color:#FEEBB3;font-weight:700;font-size:20px;padding:4px 6px}
 .mythcraft-statblock .slot-window{height:36px;overflow:hidden;display:flex;align-items:center}
 .mythcraft-statblock .slot-result{position:relative}
 .mythcraft-statblock .animated-rolls-slot-container{display:flex;justify-content:center;align-items:center}

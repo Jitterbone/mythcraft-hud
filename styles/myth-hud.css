@@ -516,10 +516,6 @@
     100% { border-color: #3a7a7f; box-shadow: 0 0 8px rgba(0, 0, 0, 0.7); }
 }
 
-.hud-actor-card.is-dying .hud-death-overlay {
-    /* The animation is now on the parent card's border */
-}
-
 .hud-actor-card.is-dead .hud-card-bg {
     filter: grayscale(100%);
 }
@@ -1226,7 +1222,7 @@
     background: #222; /* Dark Gray */
     border: 1px solid #3a7a7f;
     border-radius: 4px;
-    overflow: hidden;
+    overflow: visible;
     color: #eee;
     box-shadow: 0 2px 5px rgba(0,0,0,0.5);
 }
