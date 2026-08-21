@@ -1366,11 +1366,17 @@ Hooks.once("ready", async () => {
         for (const t of targets) {
             const actor = t.actor;
             if (!actor) continue;
-            const hp = Number(actor.system.hp?.value) || 0;
-            const newHp = Math.max(0, hp - val);
-            await actor.update({ "system.hp.value": newHp });
-            const typeLabel = dmgType ? `${dmgType.charAt(0).toUpperCase() + dmgType.slice(1)} ` : '';
-            ui.notifications.info(`Applied ${val} ${typeLabel}damage to ${actor.name} (${hp} \u2192 ${newHp} HP)`);
+            if (typeof actor.takeDamage === "function") {
+                await actor.takeDamage(val, { type: dmgType });
+            } else if (typeof actor.system?.takeDamage === "function") {
+                await actor.system.takeDamage(val, { type: dmgType });
+            } else {
+                const hp = Number(actor.system.hp?.value) || 0;
+                const newHp = Math.max(0, hp - val);
+                await actor.update({ "system.hp.value": newHp });
+                const typeLabel = dmgType ? `${dmgType.charAt(0).toUpperCase() + dmgType.slice(1)} ` : '';
+                ui.notifications.info(`Applied ${val} ${typeLabel}damage to ${actor.name} (${hp} \u2192 ${newHp} HP)`);
+            }
         }
     });
 
