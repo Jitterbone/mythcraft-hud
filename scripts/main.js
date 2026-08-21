@@ -37,43 +37,122 @@ function extractDiceResults(message) {
     return allDice;
 }
 
-function extractRollBonus(message) {
-    for (let roll of message.rolls ?? []) {
-        roll = normalizeRollObject(roll);
-        if (!roll) continue;
- 
-        // Priority 1: Use the bonus value explicitly set by our hooks. This is the most reliable.
+function extractRollModifiersAndBonus(rolls, message) {
+    const modifiers = [];
+    let totalBonus = 0;
+    let explicitBonus = null;
+
+    const normalizedRolls = (rolls ?? []).map(normalizeRollObject).filter(Boolean);
+
+    for (const roll of normalizedRolls) {
+        // Check if structured modifiers were attached (e.g. from ActionHandler)
+        if (Array.isArray(roll.options?.modifiers) && roll.options.modifiers.length > 0) {
+            for (const mod of roll.options.modifiers) {
+                const num = Number(mod.value) || 0;
+                modifiers.push({
+                    label: mod.label || "Modifier",
+                    value: num,
+                    text: (num >= 0 ? `+${num}` : `${num}`),
+                    cssClass: num >= 0 ? 'positive' : 'negative'
+                });
+            }
+        }
+
+        // Check if a mythcraftBonusValue was attached
         if (Number.isFinite(roll?.options?.mythcraftBonusValue)) {
-            return {
+            explicitBonus = {
                 value: roll.options.mythcraftBonusValue,
-                text: roll.options.mythcraftBonusText
+                text: roll.options.mythcraftBonusText || (roll.options.mythcraftBonusValue >= 0 ? `+${roll.options.mythcraftBonusValue}` : `${roll.options.mythcraftBonusValue}`)
             };
         }
- 
-        // Priority 2: Manually calculate the bonus from all numeric terms in the roll.
-        // This is the robust fallback for rolls not originating from the HUD/patched methods.
-        let constantBonus = 0;
-        let lastOperator = '+';
-        for (const term of roll.terms ?? []) {
-            if (term instanceof foundry.dice.terms.OperatorTerm) {
-                lastOperator = term.operator;
-            } else if (term instanceof foundry.dice.terms.NumericTerm) {
-                const value = Number(term.number);
-                if (!Number.isFinite(value)) continue;
- 
-                if (lastOperator === '-') {
-                    constantBonus -= value;
-                } else {
-                    constantBonus += value;
+
+        // Parse terms if no structured modifiers were added
+        if (modifiers.length === 0) {
+            let lastOperator = '+';
+            for (const term of roll.terms ?? []) {
+                if (term instanceof foundry.dice.terms.OperatorTerm) {
+                    lastOperator = term.operator;
+                } else if (term instanceof foundry.dice.terms.NumericTerm) {
+                    const value = Number(term.number);
+                    if (!Number.isFinite(value)) continue;
+                    const signedVal = lastOperator === '-' ? -value : value;
+                    totalBonus += signedVal;
+
+                    let label = term.options?.flavor || term.flavor;
+                    if (!label) {
+                        const rollFlavor = normalizeRollFlavor(message?.flavor || roll.options?.flavor || '');
+                        if (rollFlavor.includes("Check")) label = "Attribute / Skill";
+                        else if (rollFlavor.includes("Save")) label = "Save Bonus";
+                        else if (rollFlavor.includes("Attack")) label = "Attack Bonus";
+                        else if (rollFlavor.includes("Damage")) label = "Damage Bonus";
+                        else label = "Modifier";
+                    }
+                    modifiers.push({
+                        label: label,
+                        value: signedVal,
+                        text: (signedVal >= 0 ? `+${signedVal}` : `${signedVal}`),
+                        cssClass: signedVal >= 0 ? 'positive' : 'negative'
+                    });
                 }
             }
         }
- 
-        if (constantBonus !== 0) {
-            return { value: constantBonus, text: (constantBonus > 0 ? `+${constantBonus}` : `${constantBonus}`) };
+    }
+
+    let bonus = explicitBonus;
+    if (!bonus) {
+        if (modifiers.length > 0) {
+            const sum = modifiers.reduce((acc, m) => acc + m.value, 0);
+            if (sum !== 0) {
+                bonus = {
+                    value: sum,
+                    text: sum >= 0 ? `+${sum}` : `${sum}`
+                };
+            }
+        } else if (totalBonus !== 0) {
+            bonus = {
+                value: totalBonus,
+                text: totalBonus >= 0 ? `+${totalBonus}` : `${totalBonus}`
+            };
         }
     }
-    return null;
+
+    return { modifiers, bonus };
+}
+
+function extractDamageType(message, rolls, context) {
+    const normalizedRolls = (rolls ?? []).map(normalizeRollObject).filter(Boolean);
+    for (const roll of normalizedRolls) {
+        if (roll.options?.type) return roll.options.type.toLowerCase();
+        if (roll.options?.flavor && !["damage", "damage roll", "roll"].includes(roll.options.flavor.toLowerCase())) {
+            return roll.options.flavor.toLowerCase();
+        }
+    }
+    const flavorText = ((message?.flavor || "") + " " + (context?.flavor || "")).toLowerCase();
+    const damageTypes = ["sharp", "blunt", "cold", "corrosive", "fire", "lightning", "toxic", "necrotic", "psychic", "radiant", "sonic"];
+    for (const dt of damageTypes) {
+        if (flavorText.includes(dt)) return dt;
+    }
+    return "";
+}
+
+function checkDamageOrHealing(message, rolls, context) {
+    const normalizedRolls = (rolls ?? []).map(normalizeRollObject).filter(Boolean);
+    const hasHealOption = normalizedRolls.some(r => r.options?.isHeal === true);
+    const hasDamageOption = normalizedRolls.some(r => r.options?.isHeal === false || r.options?.type || r.class === "DamageRoll" || r.constructor?.name === "DamageRoll");
+    
+    const flavorText = ((message?.flavor || "") + " " + (context?.flavor || "") + " " + (context?.resultLabel || "")).toLowerCase();
+    
+    if (hasHealOption || flavorText.includes("heal") || flavorText.includes("healing")) {
+        return { isDamage: false, isHeal: true, damageType: "" };
+    }
+    
+    const damageType = extractDamageType(message, rolls, context);
+    const damageKeywords = ["damage", "blunt", "sharp", "cold", "corrosive", "fire", "lightning", "toxic", "necrotic", "psychic", "radiant", "sonic"];
+    if (hasDamageOption || damageType || damageKeywords.some(kw => flavorText.includes(kw))) {
+        return { isDamage: true, isHeal: false, damageType };
+    }
+
+    return { isDamage: false, isHeal: false, damageType: "" };
 }
 
 function normalizeRollFlavor(flavor) {
@@ -85,6 +164,11 @@ function normalizeRollFlavor(flavor) {
 async function renderAnimatedRolls(message, html) {
     if (!message.rolls?.length) return;
     if (game.settings.get('mythcraft-hud', 'disableChatStyling')) return;
+
+    // Check roll privacy: If blind and current user is not GM, non-GMs must NOT see roll dice animation or results!
+    if (message.blind && !game.user.isGM) {
+        return;
+    }
 
     // Preserve the slot UI for existing chat cards, but only animate recent rolls.
     const ts = Number(message.timestamp) || Date.parse(message.timestamp) || 0;
@@ -106,7 +190,7 @@ async function renderAnimatedRolls(message, html) {
         return diceTerms.map(term => `${term.number || 1}d${term.faces}`).join(' + ');
     }).join(' + ');
     const rawDiceResults = diceResults.map(d => `${d.result}`).join(', ');
-    const bonus = extractRollBonus({ rolls: normalizedRolls });
+    const { modifiers, bonus } = extractRollModifiersAndBonus(normalizedRolls, message);
     const baseTotal = bonus ? total - bonus.value : total;
     if (!shouldAnimate && diceResults.length > 0) {
         diceResults[0].display = total;
@@ -118,6 +202,7 @@ async function renderAnimatedRolls(message, html) {
         formula,
         rawDiceFormula,
         rawDiceResults,
+        modifiers,
         bonus,
         bonusClass: bonus ? (bonus.value < 0 ? 'negative' : 'positive') : '',
         style: 'default',
@@ -126,7 +211,8 @@ async function renderAnimatedRolls(message, html) {
 
     const content = await foundry.applications.handlebars.renderTemplate('modules/mythcraft-hud/templates/slot-machine.hbs', templateData);
 
-    let rollResultEl = html.querySelector('.mythcraft-statblock .roll-result');
+    let statblockEl = html.querySelector('.mythcraft-statblock');
+    let rollResultEl = statblockEl?.querySelector('.roll-result');
     if (!rollResultEl) {
         const wrapper = document.createElement('div');
         wrapper.className = 'mythcraft-statblock';
@@ -137,6 +223,7 @@ async function renderAnimatedRolls(message, html) {
         const target = html.querySelector('.message-content') || html;
         target.innerHTML = '';
         target.appendChild(wrapper);
+        statblockEl = wrapper;
         rollResultEl = wrapper.querySelector('.roll-result');
     }
 
@@ -154,6 +241,27 @@ async function renderAnimatedRolls(message, html) {
             if (event.target.closest('.slot-window') || event.target.closest('.slot-bonus-pill')) return;
             animatedContainer.classList.toggle('expanded');
         });
+    }
+
+    // Ensure Apply Damage / Healing button is present on the card if this is a damage/heal roll
+    const initialFlavor = normalizeRollFlavor(message.flavor || normalizedRolls[0]?.options?.flavor || '');
+    const rollContext = window.MythcraftHUD_getRollContext ? window.MythcraftHUD_getRollContext(initialFlavor, formula, normalizedRolls[0]?.options, normalizedRolls[0]) : { flavor: initialFlavor, resultLabel: "" };
+    const { isDamage, isHeal, damageType } = checkDamageOrHealing(message, normalizedRolls, rollContext);
+
+    if (isDamage || isHeal) {
+        let btn = statblockEl.querySelector(isHeal ? '.apply-healing-btn' : '.apply-damage-btn');
+        const typeLabel = damageType ? (damageType.toUpperCase() + ' ') : '';
+        if (!btn) {
+            const btnHtml = isHeal 
+                ? `<div class="card-action-bar" style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}"><i class="fas fa-heart"></i> APPLY HEALING (${total})</button></div>`
+                : `<div class="card-action-bar" style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}" data-damage-type="${damageType}"><i class="fas fa-bolt"></i> APPLY ${typeLabel}DAMAGE (${total})</button></div>`;
+            const btnFrag = document.createRange().createContextualFragment(btnHtml);
+            statblockEl.appendChild(btnFrag);
+        } else {
+            btn.dataset.value = total;
+            if (damageType) btn.dataset.damageType = damageType;
+            btn.innerHTML = isHeal ? `<i class="fas fa-heart"></i> APPLY HEALING (${total})` : `<i class="fas fa-bolt"></i> APPLY ${typeLabel}DAMAGE (${total})`;
+        }
     }
 
     // JS-driven animation: deterministic slot-like spin (constant speed then eased decel)
@@ -439,8 +547,15 @@ Hooks.on("init", () => {
         // Check for Damage/Healing based on options first
         if (rollOptions.isHeal === true) {
             resultLabel = "HEALING ROLL";
-        } else if (rollOptions.isHeal === false) {
-            resultLabel = rollOptions.flavor ? `${rollOptions.flavor.toUpperCase()} DAMAGE` : "DAMAGE ROLL";
+        } else if (rollOptions.isHeal === false || rollOptions.type) {
+            const rawType = (rollOptions.type || rollOptions.flavor || "").trim();
+            if (rawType && !["damage", "damage roll", "roll"].includes(rawType.toLowerCase())) {
+                const capitalized = rawType.charAt(0).toUpperCase() + rawType.slice(1);
+                resultLabel = `${capitalized.toUpperCase()} DAMAGE`;
+                normalizedFlavor = `${capitalized} Damage`;
+            } else {
+                resultLabel = "DAMAGE ROLL";
+            }
         } else if (rollOptions.attribute) {
             const attrKey = rollOptions.attribute.toLowerCase();
             normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
@@ -505,18 +620,35 @@ Hooks.on("init", () => {
         const total = roll.total ?? 0;
         const formula = roll.formula || '';
         const initialFlavor = normalizeRollFlavor(message.flavor || roll.options?.flavor || '');
-        const { flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
+        const context = _getRollContext(initialFlavor, formula, roll.options, roll);
+        let flavor = normalizeRollFlavor(context.flavor);
 
-        const normalizedFlavor = normalizeRollFlavor(flavor);
+        const isBlindForUser = message.blind && !game.user.isGM;
         const existingCard = html.querySelector('.mythcraft-statblock');
-        const isBlind = message.blind;
-        const resultBlock = `
+
+        const { isDamage, isHeal, damageType } = checkDamageOrHealing(message, message.rolls, context);
+        let buttonHtml = "";
+        const typeLabel = damageType ? (damageType.toUpperCase() + ' ') : '';
+        if (!isBlindForUser && (isDamage || isHeal)) {
+            buttonHtml = isHeal 
+                ? `<div class="card-action-bar" style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}"><i class="fas fa-heart"></i> APPLY HEALING (${total})</button></div>`
+                : `<div class="card-action-bar" style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}" data-damage-type="${damageType}"><i class="fas fa-bolt"></i> APPLY ${typeLabel}DAMAGE (${total})</button></div>`;
+        }
+
+        const resultBlock = isBlindForUser 
+            ? `<div class="secret"><div class="roll-value">???</div><div class="roll-formula">Blind GM Roll</div></div>`
+            : `
                 <div class="roll-value">${total}</div>
                 <div class="roll-formula">${formula}</div>
             `;
+
         if (existingCard) {
             const headerEl = existingCard.querySelector('.card-header');
-            if (headerEl && headerEl.textContent.trim() !== normalizedFlavor) headerEl.textContent = normalizedFlavor;
+            if (headerEl && headerEl.textContent.trim() !== flavor) headerEl.textContent = flavor;
+            if (buttonHtml && !existingCard.querySelector('.apply-damage-btn, .apply-healing-btn')) {
+                const btnFrag = document.createRange().createContextualFragment(buttonHtml);
+                existingCard.appendChild(btnFrag);
+            }
             return true;
         }
 
@@ -525,9 +657,10 @@ Hooks.on("init", () => {
                 <div class="mythcraft-statblock">
                     <div class="card-header">${flavor}</div>
                     <div class="roll-result">
-                        ${isBlind ? `<div class="secret">${resultBlock}</div>` : resultBlock}
+                        ${resultBlock}
                     </div>
                     <div class="dice-roll"></div>
+                    ${buttonHtml}
                 </div>`;
 
         target.innerHTML = newContent;
@@ -604,42 +737,59 @@ Hooks.on("init", () => {
             const total = roll.total;
             const formula = roll.formula;
             const initialFlavor = normalizeRollFlavor(d.flavor || roll.options?.flavor || "");
-            let { resultLabel, flavor } = _getRollContext(initialFlavor, formula, roll.options, roll);
-            flavor = normalizeRollFlavor(flavor);
+            let context = _getRollContext(initialFlavor, formula, roll.options, roll);
+            let flavor = normalizeRollFlavor(context.flavor);
 
             // If the roll is coming from our ActionHandler, it won't have the rich context.
             // We re-run the context getter here to ensure the title is always correct.
             const handlerContext = window.MythcraftHUD_getRollContext(d.flavor, formula, roll.options, roll);
-            flavor = handlerContext.flavor;
+            if (handlerContext?.flavor) flavor = handlerContext.flavor;
 
+            const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
+            const chatRollMode = d.rollMode || message.rollMode || defaultMode || "publicroll";
+
+            const updateData = {};
+            if (chatRollMode === "blindroll") {
+                updateData.blind = true;
+                updateData.whisper = ChatMessage.getWhisperRecipients("GM").map(u => u.id ?? u);
+            } else if (chatRollMode === "gmroll") {
+                updateData.whisper = ChatMessage.getWhisperRecipients("GM").map(u => u.id ?? u);
+                updateData.blind = false;
+            } else if (chatRollMode === "selfroll") {
+                updateData.whisper = [game.user.id];
+                updateData.blind = false;
+            } else if (chatRollMode === "publicroll" || chatRollMode === "roll") {
+                updateData.whisper = [];
+                updateData.blind = false;
+            }
+
+            const { isDamage, isHeal, damageType } = checkDamageOrHealing(d, d.rolls, context);
             let buttonHtml = "";
-
-            // Add Apply Damage/Healing buttons based on roll context.
-            if (roll.options?.isHeal === true) {
-                buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}">APPLY HEALING</button></div>`;
-            } else if (roll.options?.isHeal === false) {
-                buttonHtml = `<div style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}">APPLY DAMAGE</button></div>`;
+            const typeLabel = damageType ? (damageType.toUpperCase() + ' ') : '';
+            if (isHeal) {
+                buttonHtml = `<div class="card-action-bar" style="padding: 0 8px 8px 8px;"><button class="apply-healing-btn" data-value="${total}"><i class="fas fa-heart"></i> APPLY HEALING (${total})</button></div>`;
+            } else if (isDamage) {
+                buttonHtml = `<div class="card-action-bar" style="padding: 0 8px 8px 8px;"><button class="apply-damage-btn" data-value="${total}" data-damage-type="${damageType}"><i class="fas fa-bolt"></i> APPLY ${typeLabel}DAMAGE (${total})</button></div>`;
             }
 
             // Determine if the roll is a critical success or failure.
+            let resultClass = "";
             const d20Term = roll.terms.find(t => t.faces === 20);
             if (d20Term) {
-                const result = d20Term.results.find(r => r.active) || d20Term.results[0];
+                const result = d20Term.results?.find(r => r.active) || d20Term.results?.[0];
                 if (result) {
                     const d20 = result.result;
                     if (d20 === 20) {
                         resultClass = "crit-success";
-                        resultLabel = "CRITICAL SUCCESS";
                     } else if (d20 === 1) {
                         resultClass = "crit-fail";
-                        resultLabel = "CRITICAL FAILURE";
                     }
                 }
             }
 
             // Ensure the bonus is always available for animation, even on sheet rolls.
             if (!roll.options.mythcraftBonusValue) {
-                const bonusTerm = roll.terms.find(t => t instanceof NumericTerm && !t.options.flavor);
+                const bonusTerm = roll.terms.find(t => t instanceof foundry.dice.terms.NumericTerm && !t.options?.flavor);
                 if (bonusTerm) {
                     // Correctly parse the bonus value, respecting its sign.
                     // The term's operator is stored separately, so we need to combine them.
@@ -651,7 +801,6 @@ Hooks.on("init", () => {
             }
 
             // Prepare the custom HTML for the chat card.
-            const isBlind = d.blind;
             const resultBlock = `
                 <div class="roll-value">${total}</div>
                 <div class="roll-formula">${formula}</div>
@@ -666,11 +815,8 @@ Hooks.on("init", () => {
                     ${buttonHtml}
                 </div>`;
 
-            // Prepare the data payload to update the message.
-            const updateData = {
-                content: newContent,
-                flavor: "" // Clear flavor to avoid duplication.
-            };
+            updateData.content = newContent;
+            updateData.flavor = ""; // Clear flavor to avoid duplication.
 
             // V12+ replaced ChatMessage types with styles. V14 strictly enforces schemas.
             if (CONST.CHAT_MESSAGE_STYLES) {
@@ -678,11 +824,6 @@ Hooks.on("init", () => {
             } else if (CONST.CHAT_MESSAGE_TYPES) {
                 updateData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
             }
-
-            const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
-            const chatRollMode = message.rollMode || defaultMode;
-            if (ChatMessage.applyMode) ChatMessage.applyMode(updateData, chatRollMode);
-            else if (ChatMessage.applyRollMode) ChatMessage.applyRollMode(updateData, chatRollMode);
 
             if (!d.sound && d.rolls?.length > 0) updateData.sound = CONFIG.sounds.dice;
 
@@ -813,15 +954,19 @@ Hooks.once("ready", async () => {
         ev.preventDefault();
         ev.stopPropagation();
         const val = parseInt(this.dataset.value);
-        const targets = canvas.tokens.controlled;
-        if (!targets.length) return ui.notifications.warn("No tokens selected.");
+        if (isNaN(val)) return;
+        const dmgType = this.dataset.damageType || "";
+        const targets = canvas.tokens?.controlled ?? [];
+        if (!targets.length) return ui.notifications.warn("No tokens selected. Please select one or more tokens on the canvas.");
 
         for (const t of targets) {
             const actor = t.actor;
             if (!actor) continue;
-            const hp = actor.system.hp.value;
-            await actor.update({ "system.hp.value": hp - val });
-            ui.notifications.info(`Applied ${val} damage to ${actor.name}`);
+            const hp = Number(actor.system.hp?.value) || 0;
+            const newHp = Math.max(0, hp - val);
+            await actor.update({ "system.hp.value": newHp });
+            const typeLabel = dmgType ? `${dmgType.charAt(0).toUpperCase() + dmgType.slice(1)} ` : '';
+            ui.notifications.info(`Applied ${val} ${typeLabel}damage to ${actor.name} (${hp} \u2192 ${newHp} HP)`);
         }
     });
 
@@ -829,16 +974,18 @@ Hooks.once("ready", async () => {
         ev.preventDefault();
         ev.stopPropagation();
         const val = parseInt(this.dataset.value);
-        const targets = canvas.tokens.controlled;
-        if (!targets.length) return ui.notifications.warn("No tokens selected.");
+        if (isNaN(val)) return;
+        const targets = canvas.tokens?.controlled ?? [];
+        if (!targets.length) return ui.notifications.warn("No tokens selected. Please select one or more tokens on the canvas.");
 
         for (const t of targets) {
             const actor = t.actor;
             if (!actor) continue;
-            const hp = actor.system.hp.value;
-            const max = actor.system.hp.max;
-            await actor.update({ "system.hp.value": Math.min(max, hp + val) });
-            ui.notifications.info(`Applied ${val} healing to ${actor.name}`);
+            const hp = Number(actor.system.hp?.value) || 0;
+            const max = Number(actor.system.hp?.max) || hp;
+            const newHp = Math.min(max, hp + val);
+            await actor.update({ "system.hp.value": newHp });
+            ui.notifications.info(`Applied ${val} healing to ${actor.name} (${hp} \u2192 ${newHp} HP)`);
         }
     });
 

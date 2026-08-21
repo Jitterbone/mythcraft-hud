@@ -3,11 +3,19 @@
 .animated-rolls-total{font-size:.92rem;color:#FEEBB3;border-top:none;width:auto;text-align:center;padding-top:2px;margin:0;font-weight:700;opacity:0;line-height:1.2;transition:opacity .3s ease-in;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
 .animated-rolls-total .formula{font-family:monospace;font-size:.82rem;color:rgba(255,255,255,.8);margin:0}
 .animated-rolls-total .animated-rolls-big-value{font-size:1.5rem;font-weight:800;color:#FEEBB3;display:inline-flex;min-width:1.4em;text-align:center;align-items:center;justify-content:center;}
-.animated-rolls-details{width:100%;max-height:0;overflow:hidden;opacity:0;transition:max-height .25s ease,opacity .25s ease;margin-top:6px;}
-.animated-rolls-container.expanded .animated-rolls-details{max-height:120px;opacity:1;}
-.animated-rolls-details .detail-row{display:flex;justify-content:space-between;gap:0.5rem;padding:4px 8px;border-top:1px solid rgba(255,255,255,.08);font-size:.78rem;color:rgba(255,255,255,.85);}
-.animated-rolls-details .detail-label{font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#9bd7e5}
-.animated-rolls-details .detail-value{white-space:normal;text-align:right;flex:1;}
+.animated-rolls-details{width:100%;max-height:0;overflow:hidden;opacity:0;transition:max-height .3s ease,opacity .3s ease;margin-top:6px;}
+.animated-rolls-container.expanded .animated-rolls-details{max-height:400px;opacity:1;}
+.animated-rolls-details .detail-row{display:flex;justify-content:space-between;align-items:center;gap:0.5rem;padding:3px 8px;font-size:.82rem;color:rgba(255,255,255,.85);}
+.animated-rolls-details .detail-row:first-child{border-top:1px solid rgba(255,255,255,.08);}
+.animated-rolls-details .detail-label{font-weight:600;letter-spacing:.04em;color:#9bd7e5;text-align:left;}
+.animated-rolls-details .detail-value{white-space:normal;text-align:right;flex:1;font-family:var(--font-mono, monospace);font-weight:bold;}
+.animated-rolls-details .detail-value.positive{color:#2ecc71;}
+.animated-rolls-details .detail-value.negative{color:#e74c3c;}
+.animated-rolls-details .detail-value.highlight{color:#FEEBB3;font-size:0.95em;}
+.animated-rolls-details .detail-divider{border-top:1px solid rgba(58, 122, 127, 0.4);margin:3px 4px;}
+.animated-rolls-details .total-mod-row{background:rgba(255,255,255,0.03);border-radius:3px;}
+.animated-rolls-details .final-total-row{background:rgba(58, 122, 127, 0.2);border-radius:3px;font-weight:bold;}
+.animated-rolls-details .final-total-row .detail-label{color:#FEEBB3;font-weight:700;}
 .animated-rolls-total .bonus-pill{display:none}
 .slot-bonus-pill{position:absolute;top:-8px;right:-12px;z-index:2;display:inline-flex;align-items:center;justify-content:center;padding:4px 10px;border-radius:999px;background:linear-gradient(135deg,#2e8555,#37b778);color:#fff;font-size:.82rem;font-weight:700;letter-spacing:.02em;opacity:0;transform:translateY(-4px) translateX(6px) scale(.85);transition:opacity .32s ease,transform .42s ease;box-shadow:0 4px 14px rgba(0,0,0,.28)}
 .slot-bonus-pill.negative{background:linear-gradient(135deg,#c0392b,#e74c3c)}

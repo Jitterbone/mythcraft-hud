@@ -350,18 +350,42 @@ export class ActionHandler {
         let isCrit = false;
         let bonusValue = 0;
         let bonusText = "";
+        const modifiers = [];
+
         if (shouldRoll) {
-            if (bonus !== "") {
-                const ta = options.ta || 0;
-                const td = options.td || 0;
-                const modBonus = parseInt(bonus) + ta - td;
-                const modBonusStr = (modBonus >= 0 ? "+" : "") + modBonus;
-                roll = new Roll(`1d20${modBonusStr}`);
-                bonusValue = modBonus;
-                bonusText = modBonusStr;
-            } else {
-                roll = new Roll(`1d20`);
+            let baseBonusVal = 0;
+            let baseLabel = "Attack Bonus";
+            if (item.type === "weapon") {
+                const attrKey = (item.system.attr || "str").toLowerCase();
+                baseLabel = `${attrKey.toUpperCase()} Modifier`;
+                baseBonusVal = this.getAttributeValue(actor, attrKey);
+            } else if (item.type === "spell") {
+                const defaultAttr = actor.system.sp?.attribute || "int";
+                const attrKey = (item.system.attr || defaultAttr).toLowerCase();
+                baseLabel = `${attrKey.toUpperCase()} Modifier`;
+                baseBonusVal = this.getAttributeValue(actor, attrKey);
+            } else if (bonus !== "") {
+                baseBonusVal = parseInt(bonus) || 0;
             }
+
+            if (baseBonusVal !== 0 || bonus !== "") {
+                modifiers.push({ label: baseLabel, value: baseBonusVal });
+            }
+
+            const ta = options.ta || 0;
+            const td = options.td || 0;
+            if (ta > 0) {
+                modifiers.push({ label: "Tactical Advantage", value: ta });
+            }
+            if (td > 0) {
+                modifiers.push({ label: "Tactical Disadvantage", value: -td });
+            }
+
+            const modBonus = baseBonusVal + ta - td;
+            const modBonusStr = (modBonus >= 0 ? "+" : "") + modBonus;
+            roll = new Roll(`1d20${modBonus !== 0 ? modBonusStr : ''}`);
+            bonusValue = modBonus;
+            bonusText = modBonusStr;
         }
 
         // NPC Feature Blind Roll Enforcement
@@ -370,13 +394,12 @@ export class ActionHandler {
         }
 
         if (roll) {
-            if (bonusValue || bonusText) {
-                roll.options = {
-                    ...(roll.options ?? {}),
-                    mythcraftBonusValue: bonusValue,
-                    mythcraftBonusText: bonusText
-                };
-            }
+            roll.options = {
+                ...(roll.options ?? {}),
+                mythcraftBonusValue: bonusValue,
+                mythcraftBonusText: bonusText,
+                modifiers: modifiers
+            };
             await roll.evaluate();
             
             // Detect Crit for Damage Automation
@@ -422,23 +445,22 @@ export class ActionHandler {
         // Finds patterns like "5 (1d6+2) fire" or "1d6 healing"
         
         // Helper to generate the new button HTML
-        const createDamageBtn = async (formula, type) => {
-            const isHealing = type.toLowerCase() === 'healing';
-            // Prompt 1: Strict Prefix Logic
-            const command = isHealing ? `/heal ${formula}` : `/damage ${formula} type=${type}`;
+        const createDamageBtn = async (formula, type, customLabel) => {
+            const isHealing = type && type.toLowerCase() === 'healing';
+            const rawType = (type || 'damage').toLowerCase();
+            const command = isHealing ? `/heal ${formula}` : `/damage ${formula} type=${rawType}`;
             const damageString = `[[${command}]]`;
             
             const txtEd = foundry.applications?.ux?.TextEditor ?? TextEditor;
             let enriched = await txtEd.enrichHTML(damageString, { async: true, rollData: actor.getRollData() });
             
-            // Prompt 1: Label Sync
-            const label = isHealing ? 'ROLL HEAL' : 'ROLL DAMAGE';
+            const typeLabel = rawType.charAt(0).toUpperCase() + rawType.slice(1);
+            const label = customLabel || (isHealing ? 'ROLL HEAL' : (rawType !== 'damage' ? `ROLL ${typeLabel.toUpperCase()} DAMAGE` : 'ROLL DAMAGE'));
             const icon = isHealing ? 'fa-heart' : 'fa-bolt';
             
-            // Prompt 2: Professional "Native" Button UI (Inject structure)
+            // Professional "Native" Button UI
             enriched = enriched.replace(/(<a [^>]+>)(.*?)(<\/a>)/, `$1<div class="action-label"><i class="fas ${icon}"></i> ${label}</div><div class="action-formula">$2</div>$3`);
             
-            // Prompt 2: Container Style (.hud-action-button)
             return `<div class="hud-action-button ${isHealing ? 'healing' : 'damage'}">${enriched}</div>`;
         };
 
@@ -466,7 +488,7 @@ export class ActionHandler {
         // Primary Damage Button
         const primaryDmg = item.system.damage?.formula;
         if (primaryDmg) {
-            const primaryType = item.system.damage?.type || "Damage";
+            const primaryType = item.system.damage?.type || "damage";
             let finalDamageFormula = primaryDmg;
             
             // Re-fetch attribute key and value to add to damage, mirroring scraper logic
@@ -477,17 +499,27 @@ export class ActionHandler {
             if (attrVal !== 0 && !finalDamageFormula.toLowerCase().includes(damageAttrKey)) {
                  finalDamageFormula = `${finalDamageFormula} + ${attrVal}`;
             }
-
-            if (options.extraDice) {
-                finalDamageFormula += ` + ${options.extraDice}`;
-            }
             
             // Apply Crit Logic
             if (isCrit && isWeapon) {
                 finalDamageFormula = await getCritFormula(finalDamageFormula);
             }
 
-            extraHtml += await createDamageBtn(finalDamageFormula, primaryType);
+            // If extra dice has the same type as primary damage, combine them
+            if (options.extraDice && (!options.extraType || options.extraType.toLowerCase() === primaryType.toLowerCase())) {
+                finalDamageFormula += ` + ${options.extraDice}`;
+                extraHtml += await createDamageBtn(finalDamageFormula, primaryType);
+            } else {
+                extraHtml += await createDamageBtn(finalDamageFormula, primaryType);
+                if (options.extraDice) {
+                    const extraType = options.extraType || "damage";
+                    let extraFormula = options.extraDice;
+                    if (isCrit && isWeapon) {
+                        extraFormula = await getCritFormula(extraFormula);
+                    }
+                    extraHtml += await createDamageBtn(extraFormula, extraType);
+                }
+            }
         } else {
             // Fallback to scraper if system field is empty
             const healGlobalRegex = /(?:regain|restore|heal)s?\s+(?:(?:\d+)\s*[\(\[])?\s*(\d+d\d+(?:\s*[+\-]\s*(?:\d+|[a-zA-Z]+))?|\d+)\s*[)\]]?/gi;
@@ -507,16 +539,16 @@ export class ActionHandler {
                     formula = await getCritFormula(formula);
                 }
 
-                if (type.toLowerCase() === "damage") type = "Damage";
+                if (type.toLowerCase() === "damage") type = "damage";
                 if (type.toLowerCase() !== "healing" && type.toLowerCase() !== "hp") {
                      extraHtml += await createDamageBtn(formula, type);
                 }
             }
         }
 
-        // Add Additional Damage Button if provided
+        // Add Additional Damage Button if provided and not already added
         if (options.extraDice && !primaryDmg) {
-            const type = options.extraType || "Extra";
+            const type = options.extraType || "damage";
             let formula = options.extraDice;
             if (isCrit && isWeapon) {
                 formula = await getCritFormula(formula);
@@ -695,20 +727,19 @@ export class ActionHandler {
             chatData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
         }
 
-        // Apply the roll mode manually if applyRollMode is deprecated/removed in V14
-        if (ChatMessage.applyMode) {
-            ChatMessage.applyMode(chatData, chatRollMode);
-        } else if (ChatMessage.applyRollMode) {
-            ChatMessage.applyRollMode(chatData, chatRollMode);
+        // Apply the roll mode properly
+        if (chatRollMode === "blindroll") {
+            chatData.blind = true;
+            chatData.whisper = ChatMessage.getWhisperRecipients("GM").map(u => u.id ?? u);
+        } else if (chatRollMode === "gmroll") {
+            chatData.whisper = ChatMessage.getWhisperRecipients("GM").map(u => u.id ?? u);
+            chatData.blind = false;
+        } else if (chatRollMode === "selfroll") {
+            chatData.whisper = [game.user.id];
+            chatData.blind = false;
         } else {
-            if (chatRollMode === "blindroll") {
-                chatData.blind = true;
-                chatData.whisper = ChatMessage.getWhisperRecipients("GM");
-            } else if (chatRollMode === "gmroll") {
-                chatData.whisper = ChatMessage.getWhisperRecipients("GM");
-            } else if (chatRollMode === "selfroll") {
-                chatData.whisper = [game.user.id];
-            }
+            chatData.whisper = [];
+            chatData.blind = false;
         }
 
         // Manually handle 3D dice since we are bypassing the default roll message type.
@@ -747,9 +778,20 @@ export class ActionHandler {
         const bonus = skill.total ?? skill.mod ?? skill.bonus ?? 0;
 
         // Construct roll formula: 1d20 + skill bonus
-        const formula = `1d20${bonus >= 0 ? ' + ' : ' - '}${Math.abs(bonus)}`;
+        const formula = `1d20${bonus !== 0 ? (bonus >= 0 ? ' + ' : ' - ') + Math.abs(bonus) : ''}`;
         const roll = new Roll(formula, actor.getRollData());
         
+        const modifiers = [{
+            label: `${skillName} Bonus`,
+            value: bonus
+        }];
+        roll.options = {
+            ...(roll.options ?? {}),
+            mythcraftBonusValue: bonus,
+            mythcraftBonusText: (bonus >= 0 ? `+${bonus}` : `${bonus}`),
+            modifiers: modifiers
+        };
+
         await roll.evaluate();
         
         const title = `${skillName} Check`;
@@ -770,11 +812,23 @@ export class ActionHandler {
         if (save === undefined) return ui.notifications.warn("Save not found!");
 
         const saveName = saveId.charAt(0).toUpperCase() + saveId.slice(1);
+        const saveBonus = Number(save) || 0;
 
         // Construct roll formula: 1d20 + save bonus
-        const formula = `1d20 + ${save}`;
+        const formula = `1d20${saveBonus !== 0 ? (saveBonus >= 0 ? ' + ' : ' - ') + Math.abs(saveBonus) : ''}`;
         const roll = new Roll(formula, actor.getRollData());
         
+        const modifiers = [{
+            label: `${saveName} Save`,
+            value: saveBonus
+        }];
+        roll.options = {
+            ...(roll.options ?? {}),
+            mythcraftBonusValue: saveBonus,
+            mythcraftBonusText: (saveBonus >= 0 ? `+${saveBonus}` : `${saveBonus}`),
+            modifiers: modifiers
+        };
+
         await roll.evaluate();
         
         // Use createProfessionalChatCard directly for consistent styling
@@ -792,11 +846,24 @@ export class ActionHandler {
     static async rollAttribute(attrId, actor) {
         const attr = this.getAttributeValue(actor, attrId);
         const attrName = (attrId || '').toUpperCase();
+        const attrFullNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck", lp: "Luck" };
+        const labelName = attrFullNames[attrId.toLowerCase()] || attrName;
 
         // Construct roll formula: 1d20 + attribute value
-        const formula = `1d20 + ${attr}`;
+        const formula = `1d20${attr !== 0 ? (attr >= 0 ? ' + ' : ' - ') + Math.abs(attr) : ''}`;
         const roll = new Roll(formula, actor.getRollData());
         
+        const modifiers = [{
+            label: `${labelName} Modifier`,
+            value: attr
+        }];
+        roll.options = {
+            ...(roll.options ?? {}),
+            mythcraftBonusValue: attr,
+            mythcraftBonusText: (attr >= 0 ? `+${attr}` : `${attr}`),
+            modifiers: modifiers
+        };
+
         await roll.evaluate();
         
         // Use createProfessionalChatCard directly for consistent styling
@@ -846,7 +913,8 @@ export class ActionHandler {
             });
         }
 
-        const content = `[[/damage ${resolvedFormula} ${type}]]`;
+        const typeParam = type ? ` type=${type.toLowerCase()}` : '';
+        const content = `[[/damage ${resolvedFormula}${typeParam}]]`;
         await ui.chat.processMessage(content);
     }
 

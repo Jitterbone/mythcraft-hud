@@ -12,6 +12,26 @@
   </div>
   <div class="animated-rolls-details" aria-hidden="true">
     <div class="detail-row"><span class="detail-label">Raw dice</span><span class="detail-value">{{rawDiceFormula}}</span></div>
-    <div class="detail-row"><span class="detail-label">Results</span><span class="detail-value">{{rawDiceResults}}</span></div>
+    <div class="detail-row"><span class="detail-label">Dice Results</span><span class="detail-value">{{rawDiceResults}}</span></div>
+    {{#if modifiers.length}}
+    <div class="detail-divider"></div>
+    {{#each modifiers}}
+    <div class="detail-row modifier-row">
+      <span class="detail-label">{{this.label}}</span>
+      <span class="detail-value {{this.cssClass}}">{{this.text}}</span>
+    </div>
+    {{/each}}
+    {{/if}}
+    {{#if bonus}}
+    <div class="detail-divider"></div>
+    <div class="detail-row total-mod-row">
+      <span class="detail-label">Total Modifier</span>
+      <span class="detail-value {{bonusClass}}">{{bonus.text}}</span>
+    </div>
+    <div class="detail-row final-total-row">
+      <span class="detail-label">Final Total</span>
+      <span class="detail-value highlight">{{total}}</span>
+    </div>
+    {{/if}}
   </div>
 </div>

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-21
+
+### Added
+- **Apply Damage & Healing to Selected Tokens**: Integrated an "APPLY DAMAGE" (and "APPLY HEALING") action directly on chat cards that applies the evaluated total to all selected canvas tokens with automatic HP bounds checking.
+- **Specific Damage Types**: Fully integrated typed damage support (Sharp, Blunt, Cold, Fire, Corrosive, Lightning, Toxic, Necrotic, Psychic, Radiant, Sonic). Damage buttons, chat card headers, and notifications clearly display and apply the specific damage type.
+- **Tactical Modifiers Extra Damage**: Weapon attacks configured with extra damage dice with distinct types now generate dedicated roll buttons for each damage type (e.g. `ROLL SHARP DAMAGE` and `ROLL COLD DAMAGE`).
+- **Modifier Source Breakdown**: Expanding any animated chat roll card displays the complete source of each modifier (Attribute mod, Tactical Advantage, Tactical Disadvantage, item bonuses, etc.), along with Total Modifier and Final Total rows.
+- **Foundry Roll Mode & Privacy Compliance**: Full adherence to Public, Private GM, Blind GM (`???` masked for non-GM players), and Self Roll modes across dice animations, whispers, 3D dice (`Dice So Nice!`), and apply buttons.
+
+### Changed
+- **Documentation**: Streamlined and cleaned `README.md` for end-users and Game Masters.
+- **Foundry Compatibility**: Validated for Foundry VTT v13+ and v14 schemas.
+
 ## [0.9.9-hotfix] - 2024-08-01
 
 ### Fixed

@@ -1,4 +1,7 @@
-# Mythcraft HUD Module (0.9.9-hotfix) 🐲
+﻿# Mythcraft HUD Module (v1.0.0) 🐲
+
+[![Discord](https://img.shields.io/badge/Discord-263409113415942144-5865F2?style=flat&logo=discord&logoColor=white)](https://discord.com/users/263409113415942144)
+[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
 A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
 
@@ -44,31 +47,6 @@ A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft*
 2. Find "Mythcraft HUD" in the list and check the box to enable it.
 3. Save your module settings and the world will reload.
 
-## Module Structure
-
-```
-mythcraft-hud/
-├── module.json              # Module metadata and configuration
-├── README.md               # This file
-├── scripts/
-│   ├── main.js             # Entry point, hook handlers
-│   ├── app/
-│   │   └── MythcraftHUD.js # Main HUD application class
-│   ├── actions/
-│   │   └── ActionHandler.js # Handles weapon/spell/feature execution
-│   └── data/
-│       └── DataScraper.js  # Collects and categorizes actor items
-├── styles/
-│   └── myth-hud.css        # HUD styling and layout
-└── templates/
-    ├── hud-base.hbs        # Main HUD bar template
-    ├── list-weapons.hbs    # Weapons list template
-    ├── list-spells.hbs     # Spells list template
-    ├── list-features.hbs   # Features/talents/actions list
-    ├── list-skills.hbs     # Skills list template
-    └── list-saves.hbs      # Saves list template
-```
-
 ## Mythcraft Data Path Compatibility
 
 The module is built specifically for the **Mythcraft** system and uses these data paths:
@@ -95,7 +73,7 @@ The module is built specifically for the **Mythcraft** system and uses these dat
 - `system.spc` - Spell Point cost
 - `system.attr` - Primary attribute for attack (str, dex, int, wis, etc.)
 - `system.damage.formula` - Damage roll formula
-- `system.damage.type` - Damage type (fire, cold, etc.)
+- `system.damage.type` - Damage type (sharp, blunt, cold, fire, etc.)
 - `system.description.value` - Item description (HTML)
 
 ## Usage
@@ -111,71 +89,17 @@ Click on any token on the map to control it. The HUD will immediately update to 
 ### Rolling Actions
 Simply click on any weapon, spell, feature, skill, or save in the HUD to perform the action. The module will handle the roll, resource costs, and post a formatted card to chat.
 
-For weapon attacks, a **Tactical Modifiers** dialog will appear, allowing you to add situational bonuses, spend AP to reduce costs, or include extra damage dice before you roll.
-
-## Developer Information
-
-### Adding New Menu Buttons
-
-Edit `hud-base.hbs` to add new buttons in the `.hud-action-btns` section:
-```handlebars
-<button class="hud-menu-btn" data-type="yourtype" title="Your Type">
-    <i class="fas fa-your-icon"></i>
-</button>
-```
-
-Then create corresponding template: `list-yourtype.hbs`
-
-### Customizing Resources
-
-Edit `MythcraftHUD.js` `getData()` method to add custom resource tracking:
-```javascript
-customResource: system.customResource || { value: 0, max: 0 },
-```
-
-Then display in `hud-base.hbs`:
-```handlebars
-<div class="hud-row">
-    <span class="hud-label">Custom</span>
-    <span class="hud-val">{{customResource.value}} / {{customResource.max}}</span>
-</div>
-```
-
-### Extending ActionHandler
-
-Add new action methods to `ActionHandler.js`:
-```javascript
-static async executeCustomAction(itemId, actor) {
-    const item = actor.items.get(itemId);
-    // Custom logic here
-    await item.roll();
-}
-```
+For weapon attacks, a **Tactical Modifiers** dialog will appear, allowing you to add situational bonuses, spend AP to reduce costs, or include extra damage dice with specific damage types before you roll.
 
 ## Compatibility
 
 - **System**: Mythcraft v0.6.4+
-- **Foundry VTT**: v13+
-- **Dependencies**: Integrates with Dice So Nice! for 3D dice, but it is not required.
-
-## Known Issues & Limitations
-
-- Skills and Saves templates use Handlebars `capitalize` and `gt` helpers - ensure Foundry has these built-in
-- Portrait image may not update immediately if changed mid-session (refresh HUD by reselecting token)
-- Expansion area scrolls independently; ensure HUD doesn't exceed viewport height
-
-## Future Enhancements
-
-- [ ] Combat round indicator
-- [ ] Automated Mythcraft condition handling
-- [ ] Status effect display
-- [ ] Building out settings panel for advanced customization
-- [ ] Condition/state tracking
+- **Foundry VTT**: v13+ / v14
+- **Dice So Nice!**: Supported for 3D dice rolls (optional).
 
 ## Support & Contributing
 
-If you encounter a bug or have a feature request, please open an issue on GitHub.
-
-If you enjoy using this module and would like to show your support, you can:
-
-<a href="https://ko-fi.com/jitterbone" target="_blank">[!ko-fi](https://ko-fi.com/jitterbone)</a>
+For requests, issues, or feedback:
+- 💬 **Discord**: Reach out to user ID `263409113415942144` ([Discord Profile](https://discord.com/users/263409113415942144))
+- 🐛 **GitHub Issues**: [Open an issue on GitHub](https://github.com/Jitterbone/mythcraft-hud/issues)
+- ☕ **Ko-fi**: [Support development on Ko-fi](https://ko-fi.com/jitterbone)
