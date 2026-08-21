@@ -256,36 +256,65 @@ export class ActionHandler {
     }
 
 
+    static calculateItemSP(item) {
+        if (!item) return 0;
+        const spProps = [
+            "system.spc",
+            "system.spc.value",
+            "system.spCost",
+            "system.spCost.value",
+            "system.sp",
+            "system.sp.value",
+            "system.cost",
+            "system.cost.value"
+        ];
+        for (const prop of spProps) {
+            const val = foundry.utils.getProperty(item, prop);
+            if (val !== undefined && val !== null && !isNaN(val) && Number(val) > 0) {
+                return Number(val);
+            }
+        }
+        return 0;
+    }
+
     static async executeSpellCast(spellId, actor) {
         const item = actor.items.get(spellId);
         if (!item) return ui.notifications.warn("Spell not found!");
 
-        const spCost = foundry.utils.getProperty(item, "system.spc") || 0;
+        const spCost = this.calculateItemSP(item);
         const apCost = this.calculateAPC(item, actor);
-        const currentSP = foundry.utils.getProperty(actor, "system.sp.value") || 0;
-        const currentAP = actor.system.ap?.value || 0;
+        const currentSP = foundry.utils.getProperty(actor, "system.sp.value") ?? actor.system.sp?.value ?? 0;
+        const currentAP = Number(actor.system.ap?.value) || 0;
+        const inCombat = game.combat?.started && (actor.inCombat || game.combat.combatants.some(c => c.actorId === actor.id));
 
-        // Check resource availability
-        if (spCost > currentSP) {
-            return ui.notifications.error(`Not enough SP! Need ${spCost}, have ${currentSP}.`);
+        // Check resource availability (Enforced for players, GMs bypass)
+        if (!game.user.isGM && game.settings.get('mythcraft-hud', 'enforceSP')) {
+            if (spCost > currentSP) {
+                return ui.notifications.error(`Cannot cast ${item.name}! Not enough SP (Needs ${spCost} SP, have ${currentSP} SP).`);
+            }
         }
 
-        if (actor.inCombat && apCost > currentAP) {
-            return ui.notifications.error(`Not enough AP! Need ${apCost}, have ${currentAP}.`);
+        if (!game.user.isGM && inCombat && game.settings.get('mythcraft-hud', 'enforceAP')) {
+            if (apCost > currentAP) {
+                return ui.notifications.error(`Cannot cast ${item.name}! Not enough AP (Needs ${apCost} AP, have ${currentAP} AP).`);
+            }
         }
 
         // Auto-deduct resources
-        if (spCost > 0) {
+        const spMode = game.settings.get('mythcraft-hud', 'spellSPMode') ?? 'auto';
+        if (spCost > 0 && spMode !== 'disabled') {
             const newSP = Math.max(0, currentSP - spCost);
             await actor.update({ "system.sp.value": newSP });
+            ui.notifications.info(`${actor.name} cast ${item.name} (${spCost} SP consumed, ${currentSP} \u2192 ${newSP} SP remaining).`);
         }
-        if (apCost > 0 && actor.inCombat) {
+        if (apCost > 0 && inCombat) {
             const newAP = Math.max(0, currentAP - apCost);
             await actor.update({ "system.ap.value": newAP });
+            ui.notifications.info(`${actor.name} cast ${item.name} (${apCost} AP consumed, ${currentAP} \u2192 ${newAP} AP remaining).`);
         }
 
         // Roll the spell with cost data passed for the chat card
-        await this.executeUnifiedAction(spellId, actor, { spCost, apCost });
+        await this.executeUnifiedAction(spellId, actor, { spCost, apCost: inCombat ? apCost : 0, spDeducted: true });
     }
 
     // ===== NPC SPELL CAST (Fast mode, doesn't close dialog) =====
@@ -318,30 +347,45 @@ export class ActionHandler {
         const isSpell = item.type === "spell";
         const isWeapon = item.type === "weapon" || (actor.type === "npc" && desc.includes("Weapon"));
         let extraHtml = "";
+
+        const inCombat = game.combat?.started && (actor.inCombat || game.combat.combatants.some(c => c.actorId === actor.id));
+        const apCost = this.calculateAPC(item, actor);
+        const currentAP = Number(actor.system.ap?.value) || 0;
+
+        if (!game.user.isGM && inCombat && game.settings.get('mythcraft-hud', 'enforceAP') && !options.spDeducted) {
+            if (apCost > currentAP) {
+                return ui.notifications.error(`Cannot use ${item.name}! Not enough AP (Needs ${apCost} AP, have ${currentAP} AP).`);
+            }
+        }
         
         // 1. Attack Detection
         let shouldRoll = false;
         let bonus = "";
 
-        const attackRegex = /(?:[Aa]ttack:?\s*|1d20\s*)([+-]?\s*\d+)/i;
-        const attackMatch = desc.match(attackRegex);
-        
-        if (attackMatch) {
-            shouldRoll = true;
-            bonus = attackMatch[1].replace(/\s/g, '');
-        } else if (item.type === "weapon") {
-            shouldRoll = true;
-            const attrKey = (item.system.attr || "str").toLowerCase();
-            const attrVal = this.getAttributeValue(actor, attrKey);
-            bonus = (attrVal >= 0 ? "+" : "") + attrVal;
-        } else if (item.type === "spell") {
-            const attackPhrases = /make a(?:n)?\s+(?:magic\s+)?attack|magic\s+attack\s+against/i;
-            if (attackPhrases.test(desc)) {
+        if (item.type === "spell") {
+            // Spells ONLY roll dice if the description explicitly specifies "make a magic attack roll" (magic is mandatory)
+            const cleanText = desc.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+            const isMagicAttack = /make a(?:n)?\s+magic\s+attack\s+roll|make a(?:n)?\s+magic\s+attack|magic\s+attack\s+roll/.test(cleanText);
+            if (isMagicAttack) {
                 shouldRoll = true;
                 const defaultAttr = actor.system.sp?.attribute || "int";
                 const attrKey = (item.system.attr || defaultAttr).toLowerCase();
                 const attrVal = this.getAttributeValue(actor, attrKey);
                 bonus = (attrVal >= 0 ? "+" : "") + attrVal;
+            } else {
+                shouldRoll = false;
+            }
+        } else if (item.type === "weapon") {
+            shouldRoll = true;
+            const attrKey = (item.system.attr || "str").toLowerCase();
+            const attrVal = this.getAttributeValue(actor, attrKey);
+            bonus = (attrVal >= 0 ? "+" : "") + attrVal;
+        } else {
+            const attackRegex = /(?:[Aa]ttack:?\s*|1d20\s*)([+-]?\s*\d+)/i;
+            const attackMatch = desc.match(attackRegex);
+            if (attackMatch) {
+                shouldRoll = true;
+                bonus = attackMatch[1].replace(/\s/g, '');
             }
         }
 
@@ -567,6 +611,7 @@ export class ActionHandler {
             isSpell: isSpell,
             spCost: options.spCost || 0,
             apCost: options.apCost || 0,
+            spDeducted: options.spDeducted,
             rollMode: options.rollMode
         });
     }
@@ -637,7 +682,7 @@ export class ActionHandler {
     }
 
     static async createProfessionalChatCard(data) {
-        const { actor, title, roll, label, icon, description, extraHtml, isSpell, spCost, apCost, rollMode } = data;
+        const { actor, title, roll, label, icon, description, extraHtml, isSpell, spCost, apCost, spDeducted, rollMode } = data;
         
         const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
         const chatRollMode = rollMode || defaultMode;
@@ -717,6 +762,7 @@ export class ActionHandler {
             content: content,
             sound: (roll && !muteDice) ? CONFIG.sounds.dice : null,
             flavor: title,
+            flags: { "mythcraft-hud": { hudAction: true, spDeducted: !!spDeducted } },
             ...(roll ? { rolls: [roll] } : {})
         };
 

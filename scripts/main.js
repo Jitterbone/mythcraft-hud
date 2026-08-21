@@ -67,12 +67,15 @@ function extractRollModifiersAndBonus(rolls, message) {
         }
 
         // Parse terms if no structured modifiers were added
-        if (modifiers.length === 0) {
+        if (modifiers.length === 0 && Array.isArray(roll.terms)) {
             let lastOperator = '+';
-            for (const term of roll.terms ?? []) {
-                if (term instanceof foundry.dice.terms.OperatorTerm) {
-                    lastOperator = term.operator;
-                } else if (term instanceof foundry.dice.terms.NumericTerm) {
+            for (const term of roll.terms) {
+                const isOp = term.operator !== undefined || term.constructor?.name === "OperatorTerm";
+                const isNum = !term.faces && (term.number !== undefined || term.constructor?.name === "NumericTerm");
+
+                if (isOp) {
+                    lastOperator = term.operator || '+';
+                } else if (isNum) {
                     const value = Number(term.number);
                     if (!Number.isFinite(value)) continue;
                     const signedVal = lastOperator === '-' ? -value : value;
@@ -119,37 +122,79 @@ function extractRollModifiersAndBonus(rolls, message) {
     return { modifiers, bonus };
 }
 
+const MYTHCRAFT_DAMAGE_TYPES = new Set([
+    "sharp", "blunt", "cold", "corrosive", "fire", "lightning", 
+    "toxic", "necrotic", "psychic", "radiant", "sonic"
+]);
+
+function getValidDamageType(typeStr) {
+    if (!typeStr || typeof typeStr !== "string") return null;
+    const clean = typeStr.toLowerCase().trim();
+    if (MYTHCRAFT_DAMAGE_TYPES.has(clean)) return clean;
+    if (clean === "damage") return "damage";
+    return null;
+}
+
 function extractDamageType(message, rolls, context) {
     const normalizedRolls = (rolls ?? []).map(normalizeRollObject).filter(Boolean);
     for (const roll of normalizedRolls) {
-        if (roll.options?.type) return roll.options.type.toLowerCase();
-        if (roll.options?.flavor && !["damage", "damage roll", "roll"].includes(roll.options.flavor.toLowerCase())) {
-            return roll.options.flavor.toLowerCase();
-        }
+        const optType = getValidDamageType(roll.options?.type || roll.options?.damageType);
+        if (optType && optType !== "damage") return optType;
+        const optFlavor = getValidDamageType(roll.options?.flavor);
+        if (optFlavor && optFlavor !== "damage") return optFlavor;
     }
     const flavorText = ((message?.flavor || "") + " " + (context?.flavor || "")).toLowerCase();
-    const damageTypes = ["sharp", "blunt", "cold", "corrosive", "fire", "lightning", "toxic", "necrotic", "psychic", "radiant", "sonic"];
-    for (const dt of damageTypes) {
-        if (flavorText.includes(dt)) return dt;
+    for (const dt of MYTHCRAFT_DAMAGE_TYPES) {
+        if (new RegExp(`\\b${dt}\\b`, "i").test(flavorText)) {
+            return dt;
+        }
+    }
+    for (const roll of normalizedRolls) {
+        if (roll.options?.type === "damage" || roll.options?.flavor === "damage") return "damage";
+    }
+    if (/\bdamage\b/i.test(flavorText)) {
+        return "damage";
     }
     return "";
 }
 
 function checkDamageOrHealing(message, rolls, context) {
     const normalizedRolls = (rolls ?? []).map(normalizeRollObject).filter(Boolean);
-    const hasHealOption = normalizedRolls.some(r => r.options?.isHeal === true);
-    const hasDamageOption = normalizedRolls.some(r => r.options?.isHeal === false || r.options?.type || r.class === "DamageRoll" || r.constructor?.name === "DamageRoll");
     
+    // Check if it's explicitly healing
+    const hasHealOption = normalizedRolls.some(r => r.options?.isHeal === true || r.options?.type === "healing" || r.options?.type === "heal");
     const flavorText = ((message?.flavor || "") + " " + (context?.flavor || "") + " " + (context?.resultLabel || "")).toLowerCase();
-    
-    if (hasHealOption || flavorText.includes("heal") || flavorText.includes("healing")) {
+    if (hasHealOption || /\b(heal|healing|regain hp|restore hp)\b/i.test(flavorText)) {
         return { isDamage: false, isHeal: true, damageType: "" };
     }
-    
+
+    // Check if this is an attribute check, skill check, save, or attack roll (NOT damage)
+    const resultLabel = (context?.resultLabel || "").toUpperCase();
+    const isNonDamageCheck = (
+        resultLabel.includes("ATTRIBUTE CHECK") ||
+        resultLabel.includes("SKILL CHECK") ||
+        resultLabel.includes("SAVE CHECK") ||
+        resultLabel.includes("ATTACK ROLL") ||
+        resultLabel.includes("TABLE DRAW") ||
+        normalizedRolls.some(r => r.class === "AttributeRoll" || r.options?.attribute || ["attribute", "skill", "save", "attack", "check"].includes(r.options?.type?.toLowerCase()))
+    );
+
+    // Explicit damage roll identification
+    const hasExplicitDamageRoll = normalizedRolls.some(r => 
+        r.options?.isHeal === false || 
+        r.class === "DamageRoll" || 
+        r.constructor?.name === "DamageRoll" ||
+        getValidDamageType(r.options?.type || r.options?.damageType) !== null
+    );
+
     const damageType = extractDamageType(message, rolls, context);
-    const damageKeywords = ["damage", "blunt", "sharp", "cold", "corrosive", "fire", "lightning", "toxic", "necrotic", "psychic", "radiant", "sonic"];
-    if (hasDamageOption || damageType || damageKeywords.some(kw => flavorText.includes(kw))) {
-        return { isDamage: true, isHeal: false, damageType };
+
+    if (hasExplicitDamageRoll) {
+        return { isDamage: true, isHeal: false, damageType: damageType || "damage" };
+    }
+
+    if (!isNonDamageCheck && (damageType !== "" || /\bdamage\b/i.test(flavorText))) {
+        return { isDamage: true, isHeal: false, damageType: damageType || "damage" };
     }
 
     return { isDamage: false, isHeal: false, damageType: "" };
@@ -190,7 +235,26 @@ async function renderAnimatedRolls(message, html) {
         return diceTerms.map(term => `${term.number || 1}d${term.faces}`).join(' + ');
     }).join(' + ');
     const rawDiceResults = diceResults.map(d => `${d.result}`).join(', ');
-    const { modifiers, bonus } = extractRollModifiersAndBonus(normalizedRolls, message);
+    let { modifiers, bonus } = extractRollModifiersAndBonus(normalizedRolls, message);
+
+    // Fail-safe calculation: if total != sum of dice results, a bonus definitely exists!
+    const diceSum = diceResults.reduce((acc, d) => acc + (Number(d.result) || 0), 0);
+    const mathDiff = total - diceSum;
+    if ((!bonus || bonus.value === 0) && mathDiff !== 0) {
+        bonus = {
+            value: mathDiff,
+            text: mathDiff >= 0 ? `+${mathDiff}` : `${mathDiff}`
+        };
+        if (modifiers.length === 0) {
+            modifiers.push({
+                label: "Modifier",
+                value: mathDiff,
+                text: bonus.text,
+                cssClass: mathDiff >= 0 ? 'positive' : 'negative'
+            });
+        }
+    }
+
     const baseTotal = bonus ? total - bonus.value : total;
     if (!shouldAnimate && diceResults.length > 0) {
         diceResults[0].display = total;
@@ -355,27 +419,67 @@ async function renderAnimatedRolls(message, html) {
         setTimeout(() => {
             const totalEl = container.querySelector('.animated-rolls-total');
             const bigValueEl = container.querySelector('.animated-rolls-big-value');
-            const primarySlotEl = container.querySelector('.slot-window:first-child .js-slot-display.final');
+            const primaryWin = windows[0];
+            const primarySlotEl = primaryWin?.querySelector('.js-slot-display');
             const bonusEl = container.querySelector('.slot-bonus-pill');
             if (totalEl) totalEl.classList.add('visible');
-            if (bigValueEl) bigValueEl.textContent = total;            
-            if (bonus && bonus.value !== 0 && primarySlotEl && bonusEl) {
-                bonusEl.textContent = bonus.text; // Use the pre-formatted text from extractRollBonus
-                if (bonus.value < 0) bonusEl.classList.add('negative');
-                else if (bonus.value > 0) bonusEl.classList.add('positive');
-                bonusEl.classList.add('visible');
-                const bonusHold = 950;
-                const countDuration = 700;
-                setTimeout(() => {
-                    bonusEl.classList.add('merge');
-                    animateNumber(primarySlotEl, Number(primarySlotEl.textContent) || 0, total, countDuration);
-                    primarySlotEl.classList.add('pulse');
+            if (bigValueEl) bigValueEl.textContent = total;
+
+            const firstDieVal = Number(dice[0]?.result) || 0;
+
+            const handleBonus = (currentVal) => {
+                if (bonus && bonus.value !== 0 && primarySlotEl && bonusEl) {
+                    bonusEl.textContent = bonus.text;
+                    if (bonus.value < 0) {
+                        bonusEl.classList.remove('positive');
+                        bonusEl.classList.add('negative');
+                    } else if (bonus.value > 0) {
+                        bonusEl.classList.remove('negative');
+                        bonusEl.classList.add('positive');
+                    }
+                    bonusEl.classList.add('visible');
+                    const bonusHold = 750;
+                    const countDuration = 600;
                     setTimeout(() => {
-                        bonusEl.classList.remove('visible');
-                        bonusEl.classList.remove('merge');
-                        primarySlotEl.classList.remove('pulse');
-                    }, countDuration + 120);
-                }, bonusHold);
+                        bonusEl.classList.add('merge');
+                        animateNumber(primarySlotEl, currentVal, total, countDuration);
+                        primarySlotEl.classList.add('pulse');
+                        setTimeout(() => {
+                            bonusEl.classList.remove('visible', 'merge');
+                            primarySlotEl.classList.remove('pulse');
+                        }, countDuration + 120);
+                    }, bonusHold);
+                }
+            };
+
+            // If there are multiple dice (e.g. 2d6, 3d4, etc.), combine them into the first square!
+            if (windows.length > 1) {
+                const combineHold = 600; // Hold individual results briefly so user can see what was rolled
+                const combineDuration = 450;
+                setTimeout(() => {
+                    // Smoothly merge secondary windows into the first square
+                    windows.slice(1).forEach(win => win.classList.add('merge-out'));
+                    
+                    // Animate first square counting up to the sum of all dice
+                    if (primarySlotEl) {
+                        animateNumber(primarySlotEl, firstDieVal, diceSum, combineDuration);
+                        primarySlotEl.classList.add('pulse');
+                        setTimeout(() => primarySlotEl.classList.remove('pulse'), combineDuration + 100);
+                    }
+
+                    // Once merge animation completes, completely hide extra windows from layout
+                    setTimeout(() => {
+                        windows.slice(1).forEach(win => win.classList.add('is-hidden'));
+                    }, combineDuration);
+
+                    // After dice combine, if there is a bonus modifier, apply it next
+                    setTimeout(() => {
+                        handleBonus(diceSum);
+                    }, combineDuration + 200);
+                }, combineHold);
+            } else {
+                // Single die: apply bonus directly if present
+                handleBonus(firstDieVal);
             }
         }, totalRevealMs);
     }
@@ -387,23 +491,20 @@ async function renderAnimatedRolls(message, html) {
         rollResultEl.querySelectorAll('.js-slot-display').forEach(display => display.classList.add('final'));
         const totalEl = rollResultEl.querySelector('.animated-rolls-total');
         const bigValueEl = rollResultEl.querySelector('.animated-rolls-big-value');
-        const bonusEl = rollResultEl.querySelector('.slot-bonus-pill');
-        const primarySlotEl = rollResultEl.querySelector('.slot-window:first-child .js-slot-display.final');
+        const windows = Array.from(rollResultEl.querySelectorAll('.slot-window'));
+        const primarySlotEl = rollResultEl.querySelector('.slot-window:first-child .js-slot-display');
+        
+        if (windows.length > 1) {
+            windows.slice(1).forEach(win => {
+                win.classList.add('merge-out');
+                win.classList.add('is-hidden');
+            });
+        }
+        if (primarySlotEl) {
+            primarySlotEl.textContent = total;
+        }
         if (totalEl) totalEl.classList.add('visible');
         if (bigValueEl) bigValueEl.textContent = total;
-        if (bonus && bonus.value !== 0 && bonusEl) {
-            bonusEl.textContent = bonus.text; // Use the pre-formatted text
-            if (bonus.value < 0) bonusEl.classList.add('negative');
-            else if (bonus.value > 0) bonusEl.classList.add('positive');
-            bonusEl.classList.add('visible');
-            bonusEl.classList.add('merge');
-            if (primarySlotEl) primarySlotEl.classList.add('pulse');
-            setTimeout(() => {
-                bonusEl.classList.remove('visible');
-                bonusEl.classList.remove('merge');
-                if (primarySlotEl) primarySlotEl.classList.remove('pulse');
-            }, 250);
-        }
     }
 }
 
@@ -484,6 +585,67 @@ Hooks.on("init", () => {
         requiresReload: true
     });
 
+    // --- AUTOMATIONS SETTINGS ---
+    game.settings.register('mythcraft-hud', 'movementAPMode', {
+        name: "Movement AP Deduction",
+        hint: "Configure whether character token movement during their combat turn consumes Action Points based on Mythcraft movement rules.",
+        scope: "world",
+        config: true,
+        type: String,
+        choices: {
+            "auto": "Enabled (Automatic)",
+            "prompt": "Enabled (Prompt Confirmation)",
+            "disabled": "Disabled"
+        },
+        default: "auto"
+    });
+
+    game.settings.register('mythcraft-hud', 'attackAPMode', {
+        name: "Attack & Action AP Deduction",
+        hint: "Configure whether attack rolls made directly from character sheets automatically deduct the item's Action Point Cost (APC).",
+        scope: "world",
+        config: true,
+        type: String,
+        choices: {
+            "auto": "Enabled (Automatic)",
+            "prompt": "Enabled (Prompt Confirmation)",
+            "disabled": "Disabled"
+        },
+        default: "auto"
+    });
+
+    game.settings.register('mythcraft-hud', 'spellSPMode', {
+        name: "Spell SP Deduction",
+        hint: "Configure whether casting spells automatically deducts Spell Points (SP).",
+        scope: "world",
+        config: true,
+        type: String,
+        choices: {
+            "auto": "Enabled (Automatic)",
+            "prompt": "Enabled (Prompt Confirmation)",
+            "disabled": "Disabled"
+        },
+        default: "auto"
+    });
+
+    game.settings.register('mythcraft-hud', 'enforceAP', {
+        name: "Enforce AP Limits",
+        hint: "Prevent players from taking actions, attacking, casting spells, or moving tokens if they lack sufficient Action Points (AP). GMs are exempt.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: true
+    });
+
+    game.settings.register('mythcraft-hud', 'enforceSP', {
+        name: "Enforce SP Limits",
+        hint: "Prevent players from casting spells if they lack sufficient Spell Points (SP). GMs are exempt.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: true
+    });
+
     // 1. Dialog & Popup Overhaul (CSS Variables)
     const style = document.createElement('style');
     style.innerHTML = `
@@ -526,66 +688,85 @@ Hooks.on("init", () => {
         let normalizedFlavor = (flavor || "").trim();
         const flavorLower = normalizedFlavor.toLowerCase();
 
-        // New check for specific roll class from Mythcraft system
-        if (roll.class === "AttributeRoll") {
+        // 1. Mythcraft System AttributeRoll or explicit attribute option
+        if (roll.class === "AttributeRoll" || rollOptions.attribute) {
             resultLabel = "ATTRIBUTE CHECK";
-            const attrKey = roll.options?.attribute?.toLowerCase();
+            const attrKey = (roll.options?.attribute || rollOptions.attribute || "").toLowerCase();
             if (attrKey) {
                 normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
             }
             return { resultLabel, flavor: normalizedFlavor || "Attribute Check" };
         }
 
-        // Attribute list for keyword detection
-        const attributes = ["strength", "str", "agility", "agi", "dexterity", "dex", "endurance", "end", "constitution", "con", "stamina", "intelligence", "int", "awareness", "awa", "perception", "per", "wisdom", "wis", "charisma", "cha", "luck", "lck"];
-
-        // Regex for formula detection
-        const attrMatch = formula.match(/@(attributes?|abilities?|ability)\.([a-zA-Z0-9_]+)/i);
-        const skillMatch = formula.match(/@skills?\.([a-zA-Z0-9_\-]+)/i);
-        const saveMatch = formula.match(/@saves?\.([a-zA-Z0-9_]+)/i);
-
-        // Check for Damage/Healing based on options first
-        if (rollOptions.isHeal === true) {
+        // 2. Explicit Healing
+        if (rollOptions.isHeal === true || rollOptions.type === "healing" || rollOptions.type === "heal" || flavorLower.includes("healing")) {
             resultLabel = "HEALING ROLL";
-        } else if (rollOptions.isHeal === false || rollOptions.type) {
-            const rawType = (rollOptions.type || rollOptions.flavor || "").trim();
-            if (rawType && !["damage", "damage roll", "roll"].includes(rawType.toLowerCase())) {
-                const capitalized = rawType.charAt(0).toUpperCase() + rawType.slice(1);
-                resultLabel = `${capitalized.toUpperCase()} DAMAGE`;
-                normalizedFlavor = `${capitalized} Damage`;
-            } else {
-                resultLabel = "DAMAGE ROLL";
+            if (!normalizedFlavor || normalizedFlavor === "Roll" || normalizedFlavor === "System Roll") {
+                normalizedFlavor = "Healing";
             }
-        } else if (rollOptions.attribute) {
-            const attrKey = rollOptions.attribute.toLowerCase();
-            normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
-            resultLabel = "ATTRIBUTE CHECK";
-        } else if (attrMatch) {
+            return { resultLabel, flavor: normalizedFlavor };
+        }
+
+        // 3. Formula Detection for @attributes, @skills, @saves
+        const attrMatch = (formula || "").match(/@(attributes?|abilities?|ability)\.([a-zA-Z0-9_]+)/i);
+        const skillMatch = (formula || "").match(/@skills?\.([a-zA-Z0-9_\-]+)/i);
+        const saveMatch = (formula || "").match(/@saves?\.([a-zA-Z0-9_]+)/i);
+
+        if (attrMatch) {
             const attrKey = attrMatch[2].toLowerCase();
             normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
             resultLabel = "ATTRIBUTE CHECK";
-        } else if (skillMatch) {
+            return { resultLabel, flavor: normalizedFlavor };
+        }
+        if (skillMatch) {
             const skillKey = skillMatch[1].toLowerCase();
             const skillName = skillKey.split(/[-_]/).map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
             resultLabel = "SKILL CHECK";
             if (!normalizedFlavor || normalizedFlavor === "Roll" || normalizedFlavor === "System Roll" || normalizedFlavor.trim() === "") {
                 normalizedFlavor = `${skillName} Check`;
             }
-        } else if (saveMatch) {
+            return { resultLabel, flavor: normalizedFlavor };
+        }
+        if (saveMatch) {
             const saveKey = saveMatch[1].toLowerCase();
             const saveName = saveKey.charAt(0).toUpperCase() + saveKey.slice(1);
             resultLabel = "SAVE CHECK";
             if (!normalizedFlavor || normalizedFlavor === "Roll" || normalizedFlavor === "System Roll" || normalizedFlavor.trim() === "") {
                 normalizedFlavor = `${saveName} Save`;
             }
-        } else if (normalizedFlavor.includes("attribute") || normalizedFlavor.includes("ability")) {
+            return { resultLabel, flavor: normalizedFlavor };
+        }
+
+        // 4. Specific or Explicit Damage Roll
+        const validDmgType = getValidDamageType(rollOptions.type || rollOptions.damageType);
+        const isExplicitDamage = rollOptions.isHeal === false || roll.class === "DamageRoll" || roll.constructor?.name === "DamageRoll" || validDmgType !== null;
+
+        if (isExplicitDamage) {
+            const rawType = validDmgType || getValidDamageType(rollOptions.flavor) || extractDamageType({ flavor: normalizedFlavor }, [roll], {}) || "damage";
+            if (rawType && rawType !== "damage") {
+                const capitalized = rawType.charAt(0).toUpperCase() + rawType.slice(1);
+                resultLabel = `${capitalized.toUpperCase()} DAMAGE`;
+                normalizedFlavor = `${capitalized} Damage`;
+            } else {
+                resultLabel = "DAMAGE ROLL";
+                if (!normalizedFlavor || normalizedFlavor === "Roll" || normalizedFlavor === "System Roll") {
+                    normalizedFlavor = "Damage Roll";
+                }
+            }
+            return { resultLabel, flavor: normalizedFlavor };
+        }
+
+        // 5. Keyword Detection in Flavor
+        const attributes = ["strength", "str", "agility", "agi", "dexterity", "dex", "endurance", "end", "constitution", "con", "stamina", "intelligence", "int", "awareness", "awa", "perception", "per", "wisdom", "wis", "charisma", "cha", "luck", "lck"];
+
+        if (normalizedFlavor.includes("attribute") || normalizedFlavor.includes("ability")) {
             resultLabel = "ATTRIBUTE CHECK";
         } else if (normalizedFlavor.includes("save")) {
             resultLabel = "SAVE CHECK";
         } else if (normalizedFlavor.includes("skill")) {
             resultLabel = "SKILL CHECK";
         } else if (normalizedFlavor.includes("attack")) {
-            resultLabel = normalizedFlavor.includes("damage") ? "DAMAGE ROLL" : "ATTACK ROLL";
+            resultLabel = "ATTACK ROLL";
         } else if (attributes.some(a => flavorLower.includes(a))) {
             resultLabel = "ATTRIBUTE CHECK";
             const attrKey = _attributeKeyFromFlavor(normalizedFlavor);
@@ -626,6 +807,34 @@ Hooks.on("init", () => {
         const isBlindForUser = message.blind && !game.user.isGM;
         const existingCard = html.querySelector('.mythcraft-statblock');
 
+        const actor = message.speaker?.actor ? game.actors?.get(message.speaker.actor) : (canvas?.tokens?.get ? canvas.tokens.get(message.speaker?.token)?.actor : null) || game.user?.character;
+        const item = findItemFromChatMessage(message, actor);
+
+        let descHtml = "";
+        let resourceRowHtml = "";
+        let spellButtonsHtml = "";
+        if (item && (item.type === "spell" || item.type === "feature")) {
+            const desc = item.system?.description?.value || item.system?.description || "";
+            if (desc) {
+                descHtml = `<div class="card-desc scrollable" style="max-height: 220px; overflow-y: auto; padding: 6px 8px; font-size: 0.85rem; border-top: 1px solid rgba(42, 122, 127, 0.4); margin-top: 6px; line-height: 1.35; color: rgba(255, 255, 255, 0.85);">${desc}</div>`;
+            }
+            if (item.type === "spell") {
+                const spCost = calculateItemSP(item);
+                const apCost = calculateItemAPC(item, actor);
+                if (spCost > 0 || apCost > 0) {
+                    resourceRowHtml = `<div class="spell-resource-row" style="display: flex; gap: 10px; align-items: center; padding: 4px 8px; font-size: 0.82rem; color: #9bd7e5; border-bottom: 1px solid rgba(42, 122, 127, 0.25);">`;
+                    if (spCost > 0) {
+                        resourceRowHtml += `<span class="sp-spent">SP Cost: <strong>${spCost}</strong></span>`;
+                    }
+                    if (apCost > 0) {
+                        resourceRowHtml += `<span class="ap-spent">AP Cost: <strong>${apCost}</strong></span>`;
+                    }
+                    resourceRowHtml += `</div>`;
+                }
+                spellButtonsHtml = generateSpellEffectButtons(item, actor);
+            }
+        }
+
         const { isDamage, isHeal, damageType } = checkDamageOrHealing(message, message.rolls, context);
         let buttonHtml = "";
         const typeLabel = damageType ? (damageType.toUpperCase() + ' ') : '';
@@ -649,17 +858,28 @@ Hooks.on("init", () => {
                 const btnFrag = document.createRange().createContextualFragment(buttonHtml);
                 existingCard.appendChild(btnFrag);
             }
+            if (descHtml && !existingCard.querySelector('.card-desc')) {
+                const descFrag = document.createRange().createContextualFragment(descHtml);
+                existingCard.appendChild(descFrag);
+            }
+            if (spellButtonsHtml && !existingCard.querySelector('.roll-spell-damage-btn')) {
+                const spBtnFrag = document.createRange().createContextualFragment(spellButtonsHtml);
+                existingCard.appendChild(spBtnFrag);
+            }
             return true;
         }
 
         const target = html.querySelector('.message-content') || html;
         const newContent = `
-                <div class="mythcraft-statblock">
+                <div class="mythcraft-statblock${item?.type === 'spell' ? ' spell-card' : ''}">
                     <div class="card-header">${flavor}</div>
+                    ${resourceRowHtml}
                     <div class="roll-result">
                         ${resultBlock}
                     </div>
                     <div class="dice-roll"></div>
+                    ${descHtml}
+                    ${spellButtonsHtml}
                     ${buttonHtml}
                 </div>`;
 
@@ -668,8 +888,35 @@ Hooks.on("init", () => {
     };
 
     Hooks.on('renderChatMessageHTML', async (message, html) => {
-        _styleChatMessage(message, html);
-        await renderAnimatedRolls(message, html);
+        const handled = _styleChatMessage(message, html);
+        if (message.rolls?.length) {
+            await renderAnimatedRolls(message, html);
+        } else {
+            // Check if this is a sheet spell card without rolls
+            const actor = message.speaker?.actor ? game.actors?.get(message.speaker.actor) : (canvas?.tokens?.get ? canvas.tokens.get(message.speaker?.token)?.actor : null) || game.user?.character;
+            const item = findItemFromChatMessage(message, actor);
+            if (item && item.type === "spell" && !html.querySelector('.mythcraft-statblock')) {
+                const desc = item.system?.description?.value || item.system?.description || "";
+                const spCost = calculateItemSP(item);
+                const apCost = calculateItemAPC(item, actor);
+                let resourceRowHtml = "";
+                if (spCost > 0 || apCost > 0) {
+                    resourceRowHtml = `<div class="spell-resource-row" style="display: flex; gap: 10px; align-items: center; padding: 4px 8px; font-size: 0.82rem; color: #9bd7e5; border-bottom: 1px solid rgba(42, 122, 127, 0.25);">`;
+                    if (spCost > 0) resourceRowHtml += `<span class="sp-spent">SP Cost: <strong>${spCost}</strong></span>`;
+                    if (apCost > 0) resourceRowHtml += `<span class="ap-spent">AP Cost: <strong>${apCost}</strong></span>`;
+                    resourceRowHtml += `</div>`;
+                }
+                const spellButtonsHtml = generateSpellEffectButtons(item, actor);
+                const target = html.querySelector('.message-content') || html;
+                target.innerHTML = `
+                    <div class="mythcraft-statblock spell-card">
+                        <div class="card-header">${item.name}</div>
+                        ${resourceRowHtml}
+                        <div class="card-desc scrollable" style="max-height: 220px; overflow-y: auto; padding: 6px 8px; font-size: 0.85rem; line-height: 1.35; color: rgba(255, 255, 255, 0.85);">${desc}</div>
+                        ${spellButtonsHtml}
+                    </div>`;
+            }
+        }
     });
 
     // Intercept chat messages to style them with a custom card.
@@ -686,6 +933,34 @@ Hooks.on("init", () => {
         // Ignore initiative rolls to avoid conflicts with the combat tracker.
         if (d.flags?.core?.initiativeRoll) {
             return;
+        }
+
+        // Enforce SP & AP limits for players (GMs bypass)
+        if (!game.user.isGM) {
+            const actor = d.speaker?.actor ? game.actors?.get(d.speaker.actor) : (canvas?.tokens?.get ? canvas.tokens.get(d.speaker?.token)?.actor : null) || game.user?.character;
+            if (actor && actor.type === 'character') {
+                const item = findItemFromChatMessage(d, actor);
+
+                // 1. Enforce SP Limit for Spells
+                if (item && item.type === "spell" && game.settings.get('mythcraft-hud', 'enforceSP')) {
+                    const spCost = calculateItemSP(item);
+                    const currentSP = Number(foundry.utils.getProperty(actor, "system.sp.value") ?? actor.system.sp?.value ?? 0);
+                    if (spCost > currentSP) {
+                        ui.notifications.error(`Cannot cast ${item.name}! Not enough SP (Needs ${spCost} SP, have ${currentSP} SP).`);
+                        return false;
+                    }
+                }
+
+                // 2. Enforce AP Limit in Combat
+                if (item && game.combat?.started && game.settings.get('mythcraft-hud', 'enforceAP')) {
+                    const apCost = calculateItemAPC(item, actor);
+                    const currentAP = Number(actor.system.ap?.value) || 0;
+                    if (apCost > currentAP) {
+                        ui.notifications.error(`Cannot use ${item.name}! Not enough AP (Needs ${apCost} AP, have ${currentAP} AP).`);
+                        return false;
+                    }
+                }
+            }
         }
 
         // Style Roll Table results without breaking their native item drop links.
@@ -713,6 +988,61 @@ Hooks.on("init", () => {
 
         // Process messages that have rolls and are not already styled.
         if (d.rolls && d.rolls.length > 0 && !d.content?.includes("mythcraft-statblock")) {
+            const actor = d.speaker?.actor ? game.actors?.get(d.speaker.actor) : (canvas?.tokens?.get ? canvas.tokens.get(d.speaker?.token)?.actor : null) || game.user?.character;
+            const item = findItemFromChatMessage(d, actor);
+
+            // Check if this roll is from a spell that is NOT a magic attack roll
+            if (item && item.type === "spell") {
+                const desc = item.system?.description?.value || item.system?.description || "";
+                const cleanText = desc.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+                const isMagicAttack = /make a(?:n)?\s+magic\s+attack\s+roll|make a(?:n)?\s+magic\s+attack|magic\s+attack\s+roll/.test(cleanText);
+
+                if (!isMagicAttack) {
+                    // NON-ATTACK SPELL: Suppress dice roll completely!
+                    const spCost = calculateItemSP(item);
+                    const apCost = calculateItemAPC(item, actor);
+
+                    let resourceRowHtml = "";
+                    if (spCost > 0 || apCost > 0) {
+                        resourceRowHtml = `<div class="spell-resource-row" style="display: flex; gap: 10px; align-items: center; padding: 4px 8px; font-size: 0.82rem; color: #9bd7e5; border-bottom: 1px solid rgba(42, 122, 127, 0.25);">`;
+                        if (spCost > 0) resourceRowHtml += `<span class="sp-spent">SP Cost: <strong>${spCost}</strong></span>`;
+                        if (apCost > 0) resourceRowHtml += `<span class="ap-spent">AP Cost: <strong>${apCost}</strong></span>`;
+                        resourceRowHtml += `</div>`;
+                    }
+
+                    const spellButtonsHtml = generateSpellEffectButtons(item, actor);
+
+                    const newContent = `
+                        <div class="mythcraft-statblock spell-card">
+                            <div class="card-header">${item.name}</div>
+                            ${resourceRowHtml}
+                            <div class="card-desc scrollable" style="max-height: 220px; overflow-y: auto; padding: 6px 8px; font-size: 0.85rem; line-height: 1.35; color: rgba(255, 255, 255, 0.85);">${desc}</div>
+                            ${spellButtonsHtml}
+                        </div>`;
+
+                    const updateData = {
+                        content: newContent,
+                        flavor: item.name,
+                        rolls: [],
+                        sound: null,
+                        flags: {
+                            ...(d.flags ?? {}),
+                            "mythcraft-hud": {
+                                ...(d.flags?.["mythcraft-hud"] ?? {}),
+                                isNonAttackSpell: true,
+                                itemId: item.id
+                            }
+                        }
+                    };
+
+                    if (CONST.CHAT_MESSAGE_STYLES) updateData.style = CONST.CHAT_MESSAGE_STYLES.OTHER;
+                    else if (CONST.CHAT_MESSAGE_TYPES) updateData.type = CONST.CHAT_MESSAGE_TYPES.OTHER;
+
+                    message.updateSource(updateData);
+                    return;
+                }
+            }
+
             let roll = d.rolls[0];
 
             // Ensure we have a valid Roll instance.
@@ -900,6 +1230,38 @@ Hooks.once("ready", async () => {
         document.body.classList.add('mythcraft-chat-theme');
     }
 
+    // Render Theming and Automations headers in Settings Config
+    Hooks.on('renderSettingsConfig', (app, html) => {
+        const root = html instanceof HTMLElement ? html : (html[0] || html);
+        if (!root) return;
+
+        const headerStyle = 'font-size: 1.05rem; font-weight: 700; border-bottom: 1.5px solid rgba(42, 122, 127, 0.7); color: #9bd7e5; margin: 12px 0 6px 0; padding-bottom: 3px; display: flex; align-items: center; gap: 6px; width: 100%;';
+
+        // 1. Theming Header
+        const targetTheming = root.querySelector('[data-setting-id="mythcraft-hud.hudScale"]') ||
+                              root.querySelector('[name="mythcraft-hud.hudScale"]')?.closest('.form-group');
+        if (targetTheming && !root.querySelector('.mythcraft-theming-header')) {
+            const themingHeader = document.createElement('h4');
+            themingHeader.className = 'mythcraft-theming-header';
+            themingHeader.innerHTML = '<i class="fas fa-palette"></i> Theming';
+            themingHeader.style.cssText = headerStyle;
+            targetTheming.parentNode.insertBefore(themingHeader, targetTheming);
+        }
+
+        // 2. Automations Header
+        const targetAutomations = root.querySelector('[data-setting-id="mythcraft-hud.spellSPMode"]') ||
+                                  root.querySelector('[data-setting-id="mythcraft-hud.movementAPMode"]') ||
+                                  root.querySelector('[name="mythcraft-hud.spellSPMode"]')?.closest('.form-group') ||
+                                  root.querySelector('[name="mythcraft-hud.movementAPMode"]')?.closest('.form-group');
+        if (targetAutomations && !root.querySelector('.mythcraft-automations-header')) {
+            const autoHeader = document.createElement('h4');
+            autoHeader.className = 'mythcraft-automations-header';
+            autoHeader.innerHTML = '<i class="fas fa-robot"></i> Automations';
+            autoHeader.style.cssText = headerStyle;
+            targetAutomations.parentNode.insertBefore(autoHeader, targetAutomations);
+        }
+    });
+
     // Apply HUD Scale
     const currentScale = game.settings.get('mythcraft-hud', 'hudScale');
     const scaleMap = { "small": 0.8, "medium": 1.0, "large": 1.2, "xlarge": 1.4 };
@@ -947,6 +1309,48 @@ Hooks.once("ready", async () => {
         btn.disabled = true;
         btn.innerHTML = '<i class="fas fa-check"></i> Refunded';
         btn.classList.add('refunded');
+    });
+
+    // Listener for Spell Damage / Healing buttons on spell cards
+    $(document).on('click', '.roll-spell-damage-btn', async function (ev) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const formula = this.dataset.formula;
+        const type = this.dataset.damageType;
+        const isHeal = this.dataset.isHeal === "true";
+        const actorUuid = this.dataset.actorUuid;
+
+        let actor = null;
+        if (actorUuid) {
+            actor = await fromUuid(actorUuid);
+        }
+        if (!actor) {
+            actor = game.user?.character || canvas?.tokens?.controlled?.[0]?.actor;
+        }
+
+        // Resolve @ attributes if present in formula
+        let resolvedFormula = formula;
+        if (formula && formula.includes("@") && actor) {
+            resolvedFormula = formula.replace(/@([a-zA-Z0-9_]+)/g, (match, key) => {
+                const val = actor.system?.attributes?.[key]?.value ?? actor.system?.[key]?.value ?? actor.system?.[key] ?? 0;
+                return val;
+            });
+        }
+
+        if (isHeal) {
+            ChatMessage.create({
+                user: game.user.id,
+                speaker: ChatMessage.getSpeaker({ actor: actor }),
+                content: `[[/heal ${resolvedFormula}]]`
+            });
+        } else {
+            const typeParam = type && type !== "damage" ? ` type=${type.toLowerCase()}` : '';
+            ChatMessage.create({
+                user: game.user.id,
+                speaker: ChatMessage.getSpeaker({ actor: actor }),
+                content: `[[/damage ${resolvedFormula}${typeParam}]]`
+            });
+        }
     });
 
     // Listeners for Apply Buttons (Damage/Healing)
@@ -1008,7 +1412,7 @@ Hooks.once("ready", async () => {
         } else {
             const lastActor = token.actor;
             // A token was deselected. Check if any tokens are left.
-            if (canvas.tokens.controlled.length === 0) {
+            if ((canvas?.tokens?.controlled?.length ?? 0) === 0) {
                 hudInstance.closeExpansion();
                 if (game.user.character) {
                     // Player has a default character, revert to it
@@ -1061,8 +1465,20 @@ Hooks.once("ready", async () => {
         combat.combatants.forEach(c => {
             if (c.token?.object) updateTokenAP(c.token.object);
         });
+
         // Reactive AP Logic (GM Only)
         if (game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
+            // Determine if combat initiative moved forward or backward
+            const prevRound = combat.previous?.round ?? combat.round;
+            const prevTurn = combat.previous?.turn ?? combat.turn;
+            const currRound = updateData.round ?? combat.round;
+            const currTurn = updateData.turn ?? combat.turn;
+
+            const isGoingForward = (currRound > prevRound) || (currRound === prevRound && currTurn > prevTurn);
+            
+            // If initiative is going backwards, do not add reactive AP or change AP
+            if (!isGoingForward) return;
+
             const combatant = combat.combatant;
             if (!combatant || !combatant.actor) return;
 
@@ -1085,7 +1501,7 @@ Hooks.once("ready", async () => {
 
             let newAP = maxAP;
 
-            if (combat.round > 1) {
+            if (currRound > 1) {
                 const carryover = Math.min(currentAP, reactiveCap);
                 newAP += carryover;
             }
@@ -1096,11 +1512,538 @@ Hooks.once("ready", async () => {
         }
     });
 
-    Hooks.on('deleteCombat', () => {
-        // When combat ends, iterate all tokens on the canvas to remove their AP display.
-        canvas.tokens.placeables.forEach(t => updateTokenAP(t));
+    Hooks.on('deleteCombat', async (combat) => {
+        // When combat ends, reset strides
+        resetTurnMovementStride();
+
+        // Restore full AP for all character actors
+        const characters = game.actors?.filter(a => a.type === 'character') ?? [];
+        for (const actor of characters) {
+            const maxAP = Number(actor.system.ap?.max) || 0;
+            const currAP = Number(actor.system.ap?.value) || 0;
+            if (maxAP > 0 && currAP !== maxAP) {
+                await actor.update({ "system.ap.value": maxAP });
+            }
+        }
+
+        // Iterate all tokens on the canvas to update/remove their AP display
+        canvas?.tokens?.placeables?.forEach(t => updateTokenAP(t));
+    });
+
+    // Reset stride budget whenever combat turn/round advances
+    Hooks.on('updateCombat', (combat, updateData) => {
+        if (updateData.turn !== undefined || updateData.round !== undefined) {
+            resetTurnMovementStride();
+        }
+    });
+
+    // Reset stride budget, consume SP, and deduct Item APC when character takes an action / attack roll
+    Hooks.on('createChatMessage', async (msg) => {
+        // Ensure this client is the one who created the message to prevent duplicate processing
+        const isMyMessage = msg.isAuthor || (msg.author?.id ? msg.author.id === game.user.id : (msg.user?.id ? msg.user.id === game.user.id : msg.user === game.user.id));
+        if (!isMyMessage) return;
+
+        const actorId = msg.speaker?.actor;
+        const actor = actorId ? game.actors?.get(actorId) : (canvas?.tokens?.get ? canvas.tokens.get(msg.speaker?.token)?.actor : null) || game.user?.character;
+        if (!actor || actor.type !== 'character') return;
+
+        const item = findItemFromChatMessage(msg, actor);
+
+        // 1. AUTOMATIC SP CONSUMPTION (Whenever a spell is used, in or out of combat)
+        const spMode = game.settings.get('mythcraft-hud', 'spellSPMode') ?? 'auto';
+        if (item && item.type === "spell" && !msg.flags?.["mythcraft-hud"]?.spDeducted && spMode !== 'disabled') {
+            const spCost = calculateItemSP(item);
+            if (spCost > 0) {
+                const currentSP = Number(foundry.utils.getProperty(actor, "system.sp.value") ?? actor.system.sp?.value ?? 0);
+                const applySPDeduction = async () => {
+                    const newSP = Math.max(0, currentSP - spCost);
+                    await actor.update({ "system.sp.value": newSP });
+                    if (currentSP < spCost) {
+                        ui.notifications.warn(`${actor.name} cast ${item.name} (${spCost} SP cost), but only had ${currentSP} SP remaining! (SP is now 0)`);
+                    } else {
+                        ui.notifications.info(`${actor.name} cast ${item.name} (${spCost} SP consumed, ${currentSP} \u2192 ${newSP} SP remaining).`);
+                    }
+                };
+
+                if (spMode === 'auto') {
+                    await applySPDeduction();
+                } else if (spMode === 'prompt') {
+                    new Dialog({
+                        title: `Spell SP: ${actor.name}`,
+                        content: `
+                            <div style="font-family: inherit; font-size: 14px; padding: 8px;">
+                                <p style="margin-bottom: 8px;"><strong>${actor.name}</strong> cast <strong>${item.name}</strong>.</p>
+                                <p style="margin-bottom: 8px;">This spell costs <strong style="color: #3498db;">${spCost} SP</strong> (Current SP: <strong>${currentSP}</strong>).</p>
+                                ${currentSP < spCost ? `<p style="color: #e74c3c; font-weight: bold; margin-bottom: 8px;">Warning: Insufficient SP remaining!</p>` : ''}
+                                <p style="margin-bottom: 0;">Do you want to deduct <strong>${spCost} SP</strong>?</p>
+                            </div>
+                        `,
+                        buttons: {
+                            confirm: {
+                                icon: '<i class="fas fa-check"></i>',
+                                label: `Deduct ${spCost} SP`,
+                                callback: async () => {
+                                    await applySPDeduction();
+                                }
+                            },
+                            cancel: {
+                                icon: '<i class="fas fa-times"></i>',
+                                label: "Ignore / 0 SP",
+                                callback: () => {
+                                    ui.notifications.info(`SP deduction ignored for ${item.name}.`);
+                                }
+                            }
+                        },
+                        default: "confirm"
+                    }).render(true);
+                }
+            }
+        }
+
+        // Reset stride budget if actor takes an action in combat
+        if (game.combat?.started && actor.id === game.combat.combatant?.actorId && (msg.rolls?.length > 0 || item)) {
+            resetTurnMovementStride(actor.id);
+        }
+
+        // 2. AUTOMATIC AP CONSUMPTION (ONLY IN COMBAT)
+        if (!game.combat || !game.combat.started) return;
+        if (msg.flags?.["mythcraft-hud"]?.hudAction || msg.flags?.["mythcraft-hud"]?.processedAP) return;
+
+        const mode = game.settings.get('mythcraft-hud', 'attackAPMode');
+        if (mode === 'disabled') return;
+        if (!item) return;
+
+        const apCost = calculateItemAPC(item, actor);
+        if (apCost <= 0) return;
+
+        const currentAP = Number(actor.system.ap?.value) || 0;
+
+        const applyAttackDeduction = async () => {
+            const newAP = Math.max(0, currentAP - apCost);
+            await actor.update({ "system.ap.value": newAP });
+            if (currentAP < apCost) {
+                ui.notifications.warn(`${actor.name} used ${item.name} (${apCost} AP cost), but only had ${currentAP} AP remaining! (AP is now 0)`);
+            } else {
+                ui.notifications.info(`${actor.name} used ${item.name} (${apCost} AP consumed, ${currentAP} \u2192 ${newAP} AP remaining).`);
+            }
+        };
+
+        if (mode === 'auto') {
+            await applyAttackDeduction();
+        } else if (mode === 'prompt') {
+            new Dialog({
+                title: `Action AP: ${actor.name}`,
+                content: `
+                    <div style="font-family: inherit; font-size: 14px; padding: 8px;">
+                        <p style="margin-bottom: 8px;"><strong>${actor.name}</strong> used <strong>${item.name}</strong>.</p>
+                        <p style="margin-bottom: 8px;">This action costs <strong style="color: #3498db;">${apCost} AP</strong> (Current AP: <strong>${currentAP}</strong>).</p>
+                        ${currentAP < apCost ? `<p style="color: #e74c3c; font-weight: bold; margin-bottom: 8px;">Warning: Insufficient AP remaining!</p>` : ''}
+                        <p style="margin-bottom: 0;">Do you want to deduct <strong>${apCost} AP</strong>?</p>
+                    </div>
+                `,
+                buttons: {
+                    confirm: {
+                        icon: '<i class="fas fa-check"></i>',
+                        label: `Deduct ${apCost} AP`,
+                        callback: async () => {
+                            await applyAttackDeduction();
+                        }
+                    },
+                    cancel: {
+                        icon: '<i class="fas fa-times"></i>',
+                        label: "Ignore / 0 AP",
+                        callback: () => {
+                            ui.notifications.info(`Action AP deduction ignored for ${item.name}.`);
+                        }
+                    }
+                },
+                default: "confirm"
+            }).render(true);
+        }
+    });
+
+    // --- MOVEMENT AP CONSUMPTION ---
+    Hooks.on('preUpdateToken', (tokenDoc, changes, options, userId) => {
+        if (changes.x !== undefined || changes.y !== undefined) {
+            const from = { x: tokenDoc.x, y: tokenDoc.y };
+            const to = { x: changes.x ?? tokenDoc.x, y: changes.y ?? tokenDoc.y };
+            const dist = measureDistanceBetween(from, to);
+            options.mythcraftMoveDist = dist;
+
+            // Enforce AP limit on token movement for players in combat
+            if (!game.user.isGM && game.settings.get('mythcraft-hud', 'enforceAP') && game.combat?.started) {
+                const combatant = game.combat.combatant;
+                if (combatant && combatant.tokenId === tokenDoc.id) {
+                    const actor = tokenDoc.actor;
+                    if (actor && actor.type === 'character') {
+                        const speed = getActorSpeed(actor);
+                        const combatKey = `${game.combat.id}_${game.combat.round}_${game.combat.turn}`;
+                        let tracker = turnMovementTracker.get(tokenDoc.id);
+                        if (!tracker || tracker.combatKey !== combatKey) {
+                            tracker = { combatKey, actorId: actor.id, remainingFeetInStride: 0, totalMovedInTurn: 0 };
+                        }
+                        if (dist > tracker.remainingFeetInStride) {
+                            const neededDist = dist - tracker.remainingFeetInStride;
+                            const apCost = Math.ceil(neededDist / speed);
+                            const currentAP = Number(actor.system.ap?.value) || 0;
+                            if (apCost > currentAP) {
+                                ui.notifications.error(`Cannot move ${dist} ft! Not enough AP (Needs ${apCost} AP, have ${currentAP} AP).`);
+                                return false; // Aborts token movement in Foundry
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    });
+
+    Hooks.on('updateToken', async (tokenDoc, changes, options, userId) => {
+        // Only process if this client initiated the token movement
+        if (userId !== game.user.id) return;
+        if (changes.x === undefined && changes.y === undefined) return;
+
+        const mode = game.settings.get('mythcraft-hud', 'movementAPMode');
+        if (mode === 'disabled') return;
+
+        // Movement must occur during active combat
+        if (!game.combat || !game.combat.started) return;
+
+        const combatant = game.combat.combatant;
+        if (!combatant || combatant.tokenId !== tokenDoc.id) return;
+
+        const actor = tokenDoc.actor;
+        if (!actor || actor.type !== 'character') return;
+
+        const distance = Number(options.mythcraftMoveDist);
+        if (!distance || distance <= 0) return;
+
+        const speed = getActorSpeed(actor);
+        const combatKey = `${game.combat.id}_${game.combat.round}_${game.combat.turn}`;
+
+        let tracker = turnMovementTracker.get(tokenDoc.id);
+        if (!tracker || tracker.combatKey !== combatKey) {
+            tracker = { combatKey, actorId: actor.id, remainingFeetInStride: 0, totalMovedInTurn: 0 };
+            turnMovementTracker.set(tokenDoc.id, tracker);
+        }
+
+        // If distance fits within previously purchased movement stride, deduct 0 AP
+        if (distance <= tracker.remainingFeetInStride) {
+            tracker.remainingFeetInStride -= distance;
+            tracker.totalMovedInTurn += distance;
+            return;
+        }
+
+        // Distance exceeds remaining stride: compute extra distance and AP cost
+        const neededDist = distance - tracker.remainingFeetInStride;
+        const apCost = Math.ceil(neededDist / speed);
+        if (apCost <= 0) return;
+
+        const newRemaining = (tracker.remainingFeetInStride + (apCost * speed)) - distance;
+        const currentAP = Number(actor.system.ap?.value) || 0;
+
+        const applyDeduction = async () => {
+            tracker.remainingFeetInStride = newRemaining;
+            tracker.totalMovedInTurn += distance;
+            const newAP = Math.max(0, currentAP - apCost);
+            await actor.update({ "system.ap.value": newAP });
+            if (currentAP < apCost) {
+                ui.notifications.warn(`${actor.name} moved ${distance} ft (${apCost} AP cost), but only had ${currentAP} AP remaining! (AP is now 0)`);
+            } else {
+                ui.notifications.info(`${actor.name} moved ${distance} ft (${apCost} AP consumed, ${currentAP} \u2192 ${newAP} AP remaining; ${newRemaining} ft left in stride).`);
+            }
+        };
+
+        if (mode === 'auto') {
+            await applyDeduction();
+        } else if (mode === 'prompt') {
+            new Dialog({
+                title: `Movement AP: ${actor.name}`,
+                content: `
+                    <div style="font-family: inherit; font-size: 14px; padding: 8px;">
+                        <p style="margin-bottom: 8px;"><strong>${actor.name}</strong> moved <strong>${distance} ft</strong> (Speed: ${speed} ft).</p>
+                        <p style="margin-bottom: 8px;">This movement costs <strong style="color: #3498db;">${apCost} AP</strong> (Current AP: <strong>${currentAP}</strong>, ${newRemaining} ft remaining in stride after move).</p>
+                        ${currentAP < apCost ? `<p style="color: #e74c3c; font-weight: bold; margin-bottom: 8px;">Warning: Insufficient AP remaining!</p>` : ''}
+                        <p style="margin-bottom: 0;">Do you want to deduct <strong>${apCost} AP</strong>?</p>
+                    </div>
+                `,
+                buttons: {
+                    confirm: {
+                        icon: '<i class="fas fa-check"></i>',
+                        label: `Deduct ${apCost} AP`,
+                        callback: async () => {
+                            await applyDeduction();
+                        }
+                    },
+                    cancel: {
+                        icon: '<i class="fas fa-times"></i>',
+                        label: "Ignore / 0 AP",
+                        callback: () => {
+                            ui.notifications.info(`Movement AP deduction ignored for ${actor.name}.`);
+                        }
+                    }
+                },
+                default: "confirm"
+            }).render(true);
+        }
     });
 });
+
+const turnMovementTracker = new Map();
+
+function resetTurnMovementStride(actorId = null) {
+    if (actorId) {
+        for (const [key, val] of turnMovementTracker.entries()) {
+            if (val.actorId === actorId) {
+                turnMovementTracker.delete(key);
+            }
+        }
+    } else {
+        turnMovementTracker.clear();
+    }
+}
+
+function findItemFromChatMessage(msg, actor) {
+    if (!actor) return null;
+
+    // 1. Check direct flags or speaker item
+    const itemId = msg.flags?.mythcraft?.itemId || 
+                   msg.flags?.["mythcraft"]?.itemId || 
+                   msg.flags?.mythcraft?.item?._id ||
+                   msg.flags?.mythcraft?.item?.id ||
+                   msg.speaker?.item || 
+                   msg.flags?.item?.id || 
+                   (msg.getFlag ? (msg.getFlag('mythcraft', 'itemId') || msg.getFlag('mythcraft', 'item')) : null);
+
+    if (itemId) {
+        const idStr = typeof itemId === 'object' ? (itemId.id || itemId._id) : itemId;
+        const byId = actor.items.get(idStr);
+        if (byId) return byId;
+    }
+
+    // 2. Check HTML content for data-item-id
+    if (msg.content) {
+        const match = msg.content.match(/data-item-id=["']([a-zA-Z0-9]+)["']/i);
+        if (match && match[1]) {
+            const byContentId = actor.items.get(match[1]);
+            if (byContentId) return byContentId;
+        }
+    }
+
+    // 3. Check flavor text against actor's items
+    const flavor = (msg.flavor || msg.rolls?.[0]?.options?.flavor || '').toLowerCase().trim();
+    if (flavor) {
+        // Exact match or startsWith
+        const exact = actor.items.find(i => i.name && (flavor === i.name.toLowerCase() || flavor.startsWith(i.name.toLowerCase())));
+        if (exact) return exact;
+
+        // Substring match
+        const included = actor.items.find(i => i.name && flavor.includes(i.name.toLowerCase()));
+        if (included) return included;
+    }
+
+    // 4. Check roll options item or flavor
+    const rollFlavor = (msg.rolls?.[0]?.options?.flavor || '').toLowerCase().trim();
+    if (rollFlavor) {
+        const rollItem = actor.items.find(i => i.name && (rollFlavor === i.name.toLowerCase() || rollFlavor.includes(i.name.toLowerCase())));
+        if (rollItem) return rollItem;
+    }
+
+    return null;
+}
+
+function calculateItemAPC(item, actor) {
+    if (!item) return 0;
+
+    // 1. Direct properties on item.system
+    const directProps = [
+        "system.apc",
+        "system.apc.value",
+        "system.apCost",
+        "system.apCost.value",
+        "system.ap",
+        "system.ap.value",
+        "system.cost",
+        "system.cost.value",
+        "system.actionCost"
+    ];
+    for (const prop of directProps) {
+        const val = foundry.utils.getProperty(item, prop);
+        if (val !== undefined && val !== null && !isNaN(val) && Number(val) > 0) {
+            return Number(val);
+        }
+    }
+
+    // 2. ActionHandler calculation
+    if (ActionHandler && ActionHandler.calculateAPC) {
+        try {
+            const cost = ActionHandler.calculateAPC(item, actor);
+            if (Number.isFinite(cost) && cost > 0) return cost;
+        } catch (e) {}
+    }
+
+    // 3. Dynamic formula evaluation
+    let formula = item.system?.apcFormula || item.system?.apc_formula;
+    if (formula && actor) {
+        formula = String(formula).replace(/@(\w+)/g, (match, code) => {
+            const attr = actor.system?.attributes?.[code]?.value ?? actor.system?.[code]?.value ?? actor.system?.[code] ?? 0;
+            return Number(attr) || 0;
+        });
+        formula = formula.replace(/max\(/g, "Math.max(").replace(/min\(/g, "Math.min(");
+        try {
+            const evalFunc = new Function('return ' + formula);
+            const res = Number(evalFunc());
+            if (Number.isFinite(res) && res > 0) return res;
+        } catch (e) {}
+    }
+
+    return 0;
+}
+
+function calculateItemSP(item) {
+    if (!item) return 0;
+    const spProps = [
+        "system.spc",
+        "system.spc.value",
+        "system.spCost",
+        "system.spCost.value",
+        "system.sp",
+        "system.sp.value",
+        "system.cost",
+        "system.cost.value",
+        "system.actionCost"
+    ];
+    for (const prop of spProps) {
+        const val = foundry.utils.getProperty(item, prop);
+        if (val !== undefined && val !== null && !isNaN(val) && Number(val) > 0) {
+            return Number(val);
+        }
+    }
+
+    if (ActionHandler && ActionHandler.calculateItemSP) {
+        try {
+            const cost = ActionHandler.calculateItemSP(item);
+            if (Number.isFinite(cost) && cost > 0) return cost;
+        } catch (e) {}
+    }
+
+    // Fallback: Check description for SP cost pattern
+    const desc = (item.system?.description?.value || item.system?.description || "").replace(/<[^>]*>/g, ' ');
+    const spMatch = desc.match(/(?:(?:SP(?:\s*Cost)?|Cost):?\s*(\d+)|(\d+)\s*SP\b)/i);
+    if (spMatch) {
+        const cost = parseInt(spMatch[1] || spMatch[2]);
+        if (!isNaN(cost) && cost > 0) return cost;
+    }
+
+    return 0;
+}
+
+const VALID_DAMAGE_TYPES = [
+    "sharp", "blunt", "fire", "cold", "lightning", "acid", "poison",
+    "holy", "radiant", "necrotic", "unholy", "psychic", "force", "arcane",
+    "sonic", "bleed", "true", "damage"
+];
+
+function generateSpellEffectButtons(item, actor) {
+    if (!item) return "";
+    const desc = (item.system?.description?.value || item.system?.description || "");
+    const cleanDesc = desc.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+    let buttonsHtml = "";
+    const foundFormulas = new Set();
+    const actorUuid = actor?.uuid ?? "";
+
+    const createBtn = (formula, type, isHealing = false) => {
+        const rawType = (type || 'damage').toLowerCase();
+        const typeLabel = rawType.toUpperCase();
+        const label = isHealing ? 'ROLL HEAL' : (rawType !== 'damage' ? `ROLL ${typeLabel} DAMAGE` : 'ROLL DAMAGE');
+        const icon = isHealing ? 'fa-heart' : 'fa-bolt';
+        const btnClass = isHealing ? 'healing' : 'damage';
+        const color = isHealing ? '#2ecc71' : '#e74c3c';
+        const bg = isHealing ? 'rgba(46, 204, 113, 0.15)' : 'rgba(231, 76, 60, 0.15)';
+
+        return `
+            <div class="hud-action-button ${btnClass}" style="margin: 6px 0 2px 0;">
+                <button class="roll-spell-damage-btn" data-formula="${formula}" data-damage-type="${rawType}" data-is-heal="${isHealing}" data-actor-uuid="${actorUuid}" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: ${bg}; border: 1px solid ${color}; border-radius: 4px; color: #fdfaf3; font-family: inherit; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease;">
+                    <span><i class="fas ${icon}" style="margin-right: 6px;"></i>${label}</span>
+                    <span style="font-family: monospace; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 3px; font-size: 0.82rem;">${formula}</span>
+                </button>
+            </div>
+        `;
+    };
+
+    // 1. Primary damage from system if defined
+    const primaryDmg = item.system?.damage?.formula;
+    if (primaryDmg) {
+        const primaryType = item.system?.damage?.type || "damage";
+        foundFormulas.add(primaryDmg.trim());
+        buttonsHtml += createBtn(primaryDmg, primaryType, false);
+    }
+
+    // 2. Scrape damage patterns like "1d4 (fire)", "1d4 fire", "2d6 + 2 cold damage"
+    const dmgRegex = /(?:deal|takes?|takes? an additional|deals? an additional|hit)?\s*(?:(?:\d+)\s*[\(\[])?\s*(\d+d\d+(?:\s*[+\-]\s*(?:\d+|[a-zA-Z@\.]+))?)\s*[)\]]?\s*[\(\[]?\s*([a-zA-Z]+)\s*[)\]]?(?:\s+damage)?/gi;
+    let match;
+    while ((match = dmgRegex.exec(cleanDesc)) !== null) {
+        const formula = match[1].trim();
+        const typeCandidate = match[2].trim().toLowerCase();
+        if (VALID_DAMAGE_TYPES.includes(typeCandidate) && !foundFormulas.has(formula)) {
+            foundFormulas.add(formula);
+            buttonsHtml += createBtn(formula, typeCandidate, false);
+        }
+    }
+
+    // 3. Scrape healing patterns
+    const healRegex = /(?:regains?|restores?|heals?)\s+(?:(?:\d+)\s*[\(\[])?\s*(\d+d\d+(?:\s*[+\-]\s*(?:\d+|[a-zA-Z]+))?|\d+)\s*[)\]]?(?:\s+(?:HP|hit points|health))?/gi;
+    let hMatch;
+    while ((hMatch = healRegex.exec(cleanDesc)) !== null) {
+        const formula = hMatch[1].trim();
+        if (!foundFormulas.has(formula)) {
+            foundFormulas.add(formula);
+            buttonsHtml += createBtn(formula, "healing", true);
+        }
+    }
+
+    return buttonsHtml;
+}
+
+function getActorSpeed(actor) {
+    if (!actor) return 30;
+    const speedVal = actor.system.movement?.speed?.value ?? 
+                     actor.system.movement?.speed ?? 
+                     actor.system.speed?.value ?? 
+                     actor.system.speed ?? 
+                     actor.system.movement?.walk ?? 
+                     actor.system.movement?.value ?? 
+                     30;
+    const num = Number(speedVal);
+    return !isNaN(num) && num > 0 ? num : 30;
+}
+
+function measureDistanceBetween(from, to) {
+    if (!canvas?.grid) return 0;
+    if (from.x === to.x && from.y === to.y) return 0;
+    try {
+        if (canvas.grid.measurePath) {
+            const measured = canvas.grid.measurePath([from, to]);
+            if (measured?.distance !== undefined) return Math.round(measured.distance);
+        }
+        if (canvas.grid.measureDistances) {
+            const ray = new Ray(from, to);
+            const distances = canvas.grid.measureDistances([{ ray }], { gridSpaces: true });
+            if (distances?.length) return Math.round(distances[0]);
+        }
+        if (canvas.grid.measureDistance) {
+            const dist = canvas.grid.measureDistance(from, to, { gridSpaces: true });
+            if (Number.isFinite(dist)) return Math.round(dist);
+        }
+    } catch (e) {
+        console.warn("Mythcraft HUD | Error measuring movement distance:", e);
+    }
+    const gridSize = canvas.grid.sizeX || canvas.grid.size || 100;
+    const dx = (to.x - from.x) / gridSize;
+    const dy = (to.y - from.y) / gridSize;
+    const gridUnits = Math.hypot(dx, dy);
+    const distancePerGrid = canvas.scene?.grid?.distance || 5;
+    return Math.round(gridUnits * distancePerGrid);
+}
 
 // --- AP DISPLAY LOGIC ---
 const apTextMap = new Map();
