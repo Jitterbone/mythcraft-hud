@@ -124,7 +124,9 @@ function extractRollModifiersAndBonus(rolls, message) {
 
 const MYTHCRAFT_DAMAGE_TYPES = new Set([
     "sharp", "blunt", "cold", "corrosive", "fire", "lightning", 
-    "toxic", "necrotic", "psychic", "radiant", "sonic"
+    "toxic", "necrotic", "psychic", "radiant", "sonic", "acid",
+    "poison", "holy", "unholy", "force", "arcane", "bleed", "true",
+    "physical", "elemental", "energy", "direct", "magic", "magical"
 ]);
 
 function getValidDamageType(typeStr) {
@@ -136,6 +138,9 @@ function getValidDamageType(typeStr) {
 }
 
 function extractDamageType(message, rolls, context) {
+    const flagType = message?.flags?.["mythcraft-hud"]?.damageType;
+    if (flagType && flagType !== "damage") return flagType;
+
     const normalizedRolls = (rolls ?? []).map(normalizeRollObject).filter(Boolean);
     for (const roll of normalizedRolls) {
         const optType = getValidDamageType(roll.options?.type || roll.options?.damageType);
@@ -152,7 +157,7 @@ function extractDamageType(message, rolls, context) {
     for (const roll of normalizedRolls) {
         if (roll.options?.type === "damage" || roll.options?.flavor === "damage") return "damage";
     }
-    if (/\bdamage\b/i.test(flavorText)) {
+    if (/\bdamage\b/i.test(flavorText) || message?.flags?.["mythcraft-hud"]?.isDamageRoll) {
         return "damage";
     }
     return "";
@@ -940,9 +945,10 @@ Hooks.on("init", () => {
             const actor = d.speaker?.actor ? game.actors?.get(d.speaker.actor) : (canvas?.tokens?.get ? canvas.tokens.get(d.speaker?.token)?.actor : null) || game.user?.character;
             if (actor && actor.type === 'character') {
                 const item = findItemFromChatMessage(d, actor);
+                const isCastOrAction = (d.rolls && d.rolls.length > 0) || Boolean(d.flags?.["mythcraft-hud"]?.hudAction);
 
-                // 1. Enforce SP Limit for Spells
-                if (item && item.type === "spell" && game.settings.get('mythcraft-hud', 'enforceSP')) {
+                // 1. Enforce SP Limit for Spells (Only when casting/rolling, not posting description)
+                if (item && item.type === "spell" && isCastOrAction && game.settings.get('mythcraft-hud', 'enforceSP')) {
                     const spCost = calculateItemSP(item);
                     const currentSP = Number(foundry.utils.getProperty(actor, "system.sp.value") ?? actor.system.sp?.value ?? 0);
                     if (spCost > currentSP) {
@@ -952,7 +958,7 @@ Hooks.on("init", () => {
                 }
 
                 // 2. Enforce AP Limit in Combat
-                if (item && game.combat?.started && game.settings.get('mythcraft-hud', 'enforceAP')) {
+                if (item && isCastOrAction && game.combat?.started && game.settings.get('mythcraft-hud', 'enforceAP')) {
                     const apCost = calculateItemAPC(item, actor);
                     const currentAP = Number(actor.system.ap?.value) || 0;
                     if (apCost > currentAP) {
@@ -1030,6 +1036,7 @@ Hooks.on("init", () => {
                             "mythcraft-hud": {
                                 ...(d.flags?.["mythcraft-hud"] ?? {}),
                                 isNonAttackSpell: true,
+                                isSpellCast: true,
                                 itemId: item.id
                             }
                         }
@@ -1337,20 +1344,32 @@ Hooks.once("ready", async () => {
             });
         }
 
-        if (isHeal) {
-            ChatMessage.create({
-                user: game.user.id,
-                speaker: ChatMessage.getSpeaker({ actor: actor }),
-                content: `[[/heal ${resolvedFormula}]]`
-            });
-        } else {
-            const typeParam = type && type !== "damage" ? ` type=${type.toLowerCase()}` : '';
-            ChatMessage.create({
-                user: game.user.id,
-                speaker: ChatMessage.getSpeaker({ actor: actor }),
-                content: `[[/damage ${resolvedFormula}${typeParam}]]`
-            });
-        }
+        resolvedFormula = (resolvedFormula || "0").trim();
+
+        // Create Roll instance and evaluate immediately
+        const roll = new Roll(resolvedFormula, actor?.getRollData?.() || {});
+        await roll.evaluate();
+
+        const typeLabel = (type && type !== "damage") ? type.toUpperCase() : "DAMAGE";
+        const flavor = isHeal ? "HEALING ROLL" : `${typeLabel} DAMAGE`;
+
+        const defaultMode = game.settings.settings.has("core.messageMode") 
+            ? game.settings.get("core", "messageMode") 
+            : game.settings.get("core", "rollMode");
+        const rollMode = defaultMode || "publicroll";
+
+        await roll.toMessage({
+            speaker: ChatMessage.getSpeaker({ actor: actor }),
+            flavor: flavor,
+            flags: {
+                "mythcraft-hud": {
+                    isDamageRoll: !isHeal,
+                    isHealingRoll: isHeal,
+                    damageType: type || "damage",
+                    processedAP: true // Do not deduct AP on damage rolls
+                }
+            }
+        }, { rollMode });
     });
 
     // Listeners for Apply Buttons (Damage/Healing)
@@ -1555,9 +1574,15 @@ Hooks.once("ready", async () => {
 
         const item = findItemFromChatMessage(msg, actor);
 
-        // 1. AUTOMATIC SP CONSUMPTION (Whenever a spell is used, in or out of combat)
+        // 1. AUTOMATIC SP CONSUMPTION (Whenever a spell is CAST, in or out of combat)
+        // Description posts from sheet do not have rolls or isSpellCast flag and must NOT consume SP.
+        const isSpellCast = (msg.rolls && msg.rolls.length > 0) || 
+                            Boolean(msg.flags?.["mythcraft-hud"]?.isNonAttackSpell) || 
+                            Boolean(msg.flags?.["mythcraft-hud"]?.isSpellCast) || 
+                            Boolean(msg.flags?.["mythcraft-hud"]?.hudAction);
+
         const spMode = game.settings.get('mythcraft-hud', 'spellSPMode') ?? 'auto';
-        if (item && item.type === "spell" && !msg.flags?.["mythcraft-hud"]?.spDeducted && spMode !== 'disabled') {
+        if (item && item.type === "spell" && isSpellCast && !msg.flags?.["mythcraft-hud"]?.spDeducted && spMode !== 'disabled') {
             const spCost = calculateItemSP(item);
             if (spCost > 0) {
                 const currentSP = Number(foundry.utils.getProperty(actor, "system.sp.value") ?? actor.system.sp?.value ?? 0);
@@ -1944,9 +1969,10 @@ function calculateItemSP(item) {
 }
 
 const VALID_DAMAGE_TYPES = [
-    "sharp", "blunt", "fire", "cold", "lightning", "acid", "poison",
-    "holy", "radiant", "necrotic", "unholy", "psychic", "force", "arcane",
-    "sonic", "bleed", "true", "damage"
+    "sharp", "blunt", "cold", "corrosive", "fire", "lightning", 
+    "toxic", "necrotic", "psychic", "radiant", "sonic", "acid",
+    "poison", "holy", "unholy", "force", "arcane", "bleed", "true",
+    "physical", "elemental", "energy", "direct", "magic", "magical", "damage"
 ];
 
 function generateSpellEffectButtons(item, actor) {
@@ -1968,7 +1994,7 @@ function generateSpellEffectButtons(item, actor) {
 
         return `
             <div class="hud-action-button ${btnClass}" style="margin: 6px 0 2px 0;">
-                <button class="roll-spell-damage-btn" data-formula="${formula}" data-damage-type="${rawType}" data-is-heal="${isHealing}" data-actor-uuid="${actorUuid}" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: ${bg}; border: 1px solid ${color}; border-radius: 4px; color: #fdfaf3; font-family: inherit; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease;">
+                <button type="button" class="roll-spell-damage-btn" data-formula="${formula}" data-damage-type="${rawType}" data-is-heal="${isHealing}" data-actor-uuid="${actorUuid}" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: ${bg}; border: 1px solid ${color}; border-radius: 4px; color: #fdfaf3; font-family: inherit; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease;">
                     <span><i class="fas ${icon}" style="margin-right: 6px;"></i>${label}</span>
                     <span style="font-family: monospace; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 3px; font-size: 0.82rem;">${formula}</span>
                 </button>
@@ -1980,30 +2006,43 @@ function generateSpellEffectButtons(item, actor) {
     const primaryDmg = item.system?.damage?.formula;
     if (primaryDmg) {
         const primaryType = item.system?.damage?.type || "damage";
-        foundFormulas.add(primaryDmg.trim());
+        foundFormulas.add(primaryDmg.trim().toLowerCase());
         buttonsHtml += createBtn(primaryDmg, primaryType, false);
     }
 
-    // 2. Scrape damage patterns like "1d4 (fire)", "1d4 fire", "2d6 + 2 cold damage"
-    const dmgRegex = /(?:deal|takes?|takes? an additional|deals? an additional|hit)?\s*(?:(?:\d+)\s*[\(\[])?\s*(\d+d\d+(?:\s*[+\-]\s*(?:\d+|[a-zA-Z@\.]+))?)\s*[)\]]?\s*[\(\[]?\s*([a-zA-Z]+)\s*[)\]]?(?:\s+damage)?/gi;
+    // 2. Comprehensive dice scraper: match ANY dice formula (\d+d\d+(?: [+-] ...))
+    const diceRegex = /\b(\d+d\d+(?:\s*[+\-]\s*(?:\d+|@\w+|[a-zA-Z]+))?)\b/gi;
     let match;
-    while ((match = dmgRegex.exec(cleanDesc)) !== null) {
+    while ((match = diceRegex.exec(cleanDesc)) !== null) {
         const formula = match[1].trim();
-        const typeCandidate = match[2].trim().toLowerCase();
-        if (VALID_DAMAGE_TYPES.includes(typeCandidate) && !foundFormulas.has(formula)) {
-            foundFormulas.add(formula);
-            buttonsHtml += createBtn(formula, typeCandidate, false);
-        }
-    }
+        const formulaKey = formula.toLowerCase();
+        if (foundFormulas.has(formulaKey)) continue;
 
-    // 3. Scrape healing patterns
-    const healRegex = /(?:regains?|restores?|heals?)\s+(?:(?:\d+)\s*[\(\[])?\s*(\d+d\d+(?:\s*[+\-]\s*(?:\d+|[a-zA-Z]+))?|\d+)\s*[)\]]?(?:\s+(?:HP|hit points|health))?/gi;
-    let hMatch;
-    while ((hMatch = healRegex.exec(cleanDesc)) !== null) {
-        const formula = hMatch[1].trim();
-        if (!foundFormulas.has(formula)) {
-            foundFormulas.add(formula);
+        const matchIndex = match.index;
+        const afterText = cleanDesc.slice(matchIndex + match[0].length, matchIndex + match[0].length + 45).toLowerCase();
+        const beforeText = cleanDesc.slice(Math.max(0, matchIndex - 35), matchIndex).toLowerCase();
+
+        // Check for healing
+        if (/heal|healing|restore|regain|hit\s*point|hp\b/.test(afterText) || /heal|healing|restore|regain/.test(beforeText)) {
+            foundFormulas.add(formulaKey);
             buttonsHtml += createBtn(formula, "healing", true);
+            continue;
+        }
+
+        // Check for damage type in afterText or beforeText
+        let detectedType = null;
+        for (const dtype of VALID_DAMAGE_TYPES) {
+            const regex = new RegExp(`(?:^|[^a-zA-Z])${dtype}(?:[^a-zA-Z]|$)`, 'i');
+            if (regex.test(afterText) || regex.test(beforeText)) {
+                detectedType = dtype;
+                break;
+            }
+        }
+
+        // If a damage type was found near this dice formula, register the button!
+        if (detectedType) {
+            foundFormulas.add(formulaKey);
+            buttonsHtml += createBtn(formula, detectedType, false);
         }
     }
 
