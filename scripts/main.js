@@ -591,6 +591,19 @@ Hooks.on("init", () => {
     });
 
     // --- AUTOMATIONS SETTINGS ---
+    game.settings.register('mythcraft-hud', 'turnAPMode', {
+        name: "Turn Start & Reactive AP",
+        hint: "Automatically calculate and apply Max AP and Reactive AP carryover at the start of each combat turn. If disabled, AP will not be altered on turn changes.",
+        scope: "world",
+        config: true,
+        type: String,
+        choices: {
+            "auto": "Enabled (Automatic AP Reset & Reactive AP)",
+            "disabled": "Disabled (Manual AP Management)"
+        },
+        default: "auto"
+    });
+
     game.settings.register('mythcraft-hud', 'movementAPMode', {
         name: "Movement AP Deduction",
         hint: "Configure whether character token movement during their combat turn consumes Action Points based on Mythcraft movement rules.",
@@ -1491,8 +1504,9 @@ Hooks.once("ready", async () => {
             if (c.token?.object) updateTokenAP(c.token.object);
         });
 
-        // Reactive AP Logic (GM Only)
-        if (game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
+        // Reactive AP & Turn Start AP Logic (GM Only)
+        const turnAPSetting = game.settings.get('mythcraft-hud', 'turnAPMode') ?? 'auto';
+        if (turnAPSetting !== 'disabled' && game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
             // Determine if combat initiative moved forward or backward
             const prevRound = combat.previous?.round ?? combat.round;
             const prevTurn = combat.previous?.turn ?? combat.turn;
@@ -1508,6 +1522,8 @@ Hooks.once("ready", async () => {
             if (!combatant || !combatant.actor) return;
 
             const actor = combatant.actor;
+            // NPCs do NOT use Action Points (AP) - only Characters use AP
+            if (actor.type !== 'character') return;
 
             let level = 1;
             if (actor.system.level?.value !== undefined) level = Number(actor.system.level.value);
@@ -1517,22 +1533,30 @@ Hooks.once("ready", async () => {
                 const cr = Number(actor.system.cr);
                 if (!isNaN(cr)) level = cr;
             }
-            if (isNaN(level)) level = 1;
+            if (isNaN(level) || level < 1) level = 1;
 
-            const maxAP = actor.system.ap?.max || 0;
-            const currentAP = actor.system.ap?.value || 0;
+            const maxAP = Number(actor.system.ap?.max) || 3;
+            const currentAP = Number(actor.system.ap?.value) || 0;
 
-            const reactiveCap = Math.ceil(level / 2) + 1;
-
-            let newAP = maxAP;
-
-            if (currRound > 1) {
-                const carryover = Math.min(currentAP, reactiveCap);
-                newAP += carryover;
+            // In Round 1 (Start of combat encounter):
+            // DO NOT alter AP. Characters keep their pre-combat / starting AP pool as-is.
+            if (currRound <= 1) {
+                return;
             }
+
+            // In Round 2 and beyond:
+            // Regain Max AP, plus carry over remaining unspent Reactive AP from the previous round (capped at ceil(level/2) + 1)
+            const reactiveCap = Math.ceil(level / 2) + 1; // Level 1-2 = 2, Level 3-4 = 3, Level 5-6 = 4, etc.
+            const carryover = Math.min(currentAP, reactiveCap);
+            const newAP = maxAP + carryover;
 
             if (newAP !== currentAP) {
                 await actor.update({ "system.ap.value": newAP });
+                if (carryover > 0) {
+                    ui.notifications.info(`${actor.name} started turn (${maxAP} Base AP + ${carryover} Reactive AP = ${newAP} AP total).`);
+                } else {
+                    ui.notifications.info(`${actor.name} started turn (${newAP} AP available).`);
+                }
             }
         }
     });
@@ -1571,6 +1595,15 @@ Hooks.once("ready", async () => {
         const actorId = msg.speaker?.actor;
         const actor = actorId ? game.actors?.get(actorId) : (canvas?.tokens?.get ? canvas.tokens.get(msg.speaker?.token)?.actor : null) || game.user?.character;
         if (!actor || actor.type !== 'character') return;
+
+        // Never process Initiative rolls, Ability checks, Skill checks, or Death Saves for AP/SP deduction
+        const firstRollType = msg.rolls?.[0]?.constructor?.name;
+        const flavorText = (msg.flavor || msg.rolls?.[0]?.options?.flavor || '').toLowerCase();
+        const isInitiative = firstRollType === "InitiativeRoll" || 
+                             Boolean(msg.flags?.core?.initiativeRoll) || 
+                             flavorText.includes("initiative");
+        const isAttributeOrSkill = firstRollType === "AttributeRoll" && !msg.flags?.["mythcraft-hud"]?.hudAction;
+        if (isInitiative || isAttributeOrSkill) return;
 
         const item = findItemFromChatMessage(msg, actor);
 
@@ -1643,6 +1676,11 @@ Hooks.once("ready", async () => {
         const mode = game.settings.get('mythcraft-hud', 'attackAPMode');
         if (mode === 'disabled') return;
         if (!item) return;
+
+        // Must be an actual attack/damage/action roll, not a generic description card or info post
+        const hasRoll = msg.rolls && msg.rolls.length > 0;
+        const isActionMessage = hasRoll || Boolean(msg.flags?.["mythcraft-hud"]?.hudAction) || Boolean(msg.flags?.["mythcraft-hud"]?.isWeaponAttack);
+        if (!isActionMessage) return;
 
         const apCost = calculateItemAPC(item, actor);
         if (apCost <= 0) return;
@@ -1862,20 +1900,20 @@ function findItemFromChatMessage(msg, actor) {
 
     // 3. Check flavor text against actor's items
     const flavor = (msg.flavor || msg.rolls?.[0]?.options?.flavor || '').toLowerCase().trim();
-    if (flavor) {
+    if (flavor && !flavor.includes("initiative")) {
         // Exact match or startsWith
         const exact = actor.items.find(i => i.name && (flavor === i.name.toLowerCase() || flavor.startsWith(i.name.toLowerCase())));
         if (exact) return exact;
 
-        // Substring match
-        const included = actor.items.find(i => i.name && flavor.includes(i.name.toLowerCase()));
+        // Substring match only for specific non-generic item names (>= 3 chars)
+        const included = actor.items.find(i => i.name && i.name.length >= 3 && flavor.includes(i.name.toLowerCase()));
         if (included) return included;
     }
 
     // 4. Check roll options item or flavor
     const rollFlavor = (msg.rolls?.[0]?.options?.flavor || '').toLowerCase().trim();
-    if (rollFlavor) {
-        const rollItem = actor.items.find(i => i.name && (rollFlavor === i.name.toLowerCase() || rollFlavor.includes(i.name.toLowerCase())));
+    if (rollFlavor && !rollFlavor.includes("initiative")) {
+        const rollItem = actor.items.find(i => i.name && (rollFlavor === i.name.toLowerCase() || (i.name.length >= 3 && rollFlavor.includes(i.name.toLowerCase()))));
         if (rollItem) return rollItem;
     }
 
@@ -2106,11 +2144,12 @@ function updateTokenAP(token) {
         apTextMap.delete(token.id);
     }
 
+    // AP is strictly for player Character actors - never show AP on NPCs
+    if (token.actor?.type !== 'character') return;
+
     if (!token.controlled) return;
     // Only show AP above the token when in combat with an active initiative.
     if (!token.inCombat || !game.combat?.combatant) return;
-    // Do not show AP text for NPC actors.
-    if (token.actor?.type === 'npc') return;
 
     const isTurn = game.combat?.combatant?.tokenId === token.id;
     const ap = token.actor.system.ap?.value ?? 0;

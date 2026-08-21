@@ -252,26 +252,29 @@ export class ConditionHandler {
     }
 
     async handleUpdateCombat(combat, round, options, userId) {
-        if (game.userId !== userId || !combat.combatant) return;
+        const currentUserId = game.user?.id ?? game.userId;
+        if (currentUserId !== userId || !combat.combatant) return;
 
         const actor = combat.combatant.actor;
-        if (!actor) return;
+        if (!actor || actor.type !== 'character') return;
 
         if (round.turn === undefined && round.round === undefined) return;
 
-        const dazed = actor.statuses.has('dazed');
+        const dazed = actor.effects.some(e => !e.disabled && e.statuses.has('dazed')) || (actor.statuses.has('dazed') && !actor.effects.some(e => e.disabled && e.statuses.has('dazed')));
         if (dazed) {
-            const currentAP = actor.system.ap.value;
+            const currentAP = Number(actor.system.ap?.value) || 0;
             if (currentAP > 3) {
                 await actor.update({ 'system.ap.value': 3 });
+                ui.notifications.info(`${actor.name} is Dazed (AP capped at 3).`);
             }
         }
 
-        const stunned = actor.statuses.has('stunned');
+        const stunned = actor.effects.some(e => !e.disabled && e.statuses.has('stunned')) || (actor.statuses.has('stunned') && !actor.effects.some(e => e.disabled && e.statuses.has('stunned')));
         if (stunned) {
-            const currentAP = actor.system.ap.value;
+            const currentAP = Number(actor.system.ap?.value) || 0;
             if (currentAP > 1) {
                 await actor.update({ 'system.ap.value': 1 });
+                ui.notifications.info(`${actor.name} is Stunned (AP capped at 1).`);
             }
         }
 

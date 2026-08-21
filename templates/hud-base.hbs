@@ -22,10 +22,12 @@
                             <span class="stat-label">HP</span>
                             <span class="stat-val">{{hp.value}}</span>
                         </div>
+                        {{#unless isNPC}}
                         <div class="stat-row ap">
                             <span class="stat-label">AP</span>
                             <span class="stat-val">{{ap.value}}</span>
                         </div>
+                        {{/unless}}
                         <div class="stat-row sp">
                             <span class="stat-label">SP</span>
                             <span class="stat-val">{{sp.value}}</span>
