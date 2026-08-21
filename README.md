@@ -98,7 +98,6 @@ For weapon attacks, a **Tactical Modifiers** dialog will appear, allowing you to
 
 ## Support & Contributing
 
-For requests, issues, or feedback:
-- 💬 **Discord**: Reach out to user ID `263409113415942144` ([Discord Profile](https://discord.com/users/263409113415942144))
+If you encounter a bug, have a feature request, or would like to support ongoing development:
 - 🐛 **GitHub Issues**: [Open an issue on GitHub](https://github.com/Jitterbone/mythcraft-hud/issues)
 - ☕ **Ko-fi**: [Support development on Ko-fi](https://ko-fi.com/jitterbone)
