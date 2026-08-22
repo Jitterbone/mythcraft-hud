@@ -114,8 +114,9 @@ export class ConditionHandler {
     }
 
     handleRenderActiveEffectConfig(app, html, data) {
-        const effect = app.object;
-        const statusId = [...(effect.statuses ?? [])][0];
+        const effect = app.document || app.object;
+        if (!effect || !effect.statuses) return;
+        const statusId = [...effect.statuses][0];
         if (!statusId) return;
         const condition = MythcraftConditions.find(c => c.id === statusId);
         if (!condition) return;
