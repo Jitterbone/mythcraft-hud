@@ -609,12 +609,15 @@ export class ActionHandler {
             icon: item.img,
             extraHtml: extraHtml,
             isSpell: isSpell,
+            itemId: item.id,
+            defenseTarget: item.system?.defenseTarget || item.system?.defense || (isWeapon ? "ar" : undefined),
             spCost: options.spCost || 0,
             apCost: options.apCost || 0,
             spDeducted: options.spDeducted,
             rollMode: options.rollMode
         });
     }
+
 
     // ===== REST LOGIC =====
 
@@ -762,9 +765,17 @@ export class ActionHandler {
             content: content,
             sound: (roll && !muteDice) ? CONFIG.sounds.dice : null,
             flavor: title,
-            flags: { "mythcraft-hud": { hudAction: true, spDeducted: !!spDeducted } },
+            flags: { 
+                "mythcraft-hud": { 
+                    hudAction: true, 
+                    spDeducted: !!spDeducted,
+                    itemId: data.itemId,
+                    defenseTarget: data.defenseTarget
+                } 
+            },
             ...(roll ? { rolls: [roll] } : {})
         };
+
 
         // V12+ replaced ChatMessage types with styles. V14 strictly enforces schemas.
         if (CONST.CHAT_MESSAGE_STYLES) {
@@ -802,8 +813,10 @@ export class ActionHandler {
             }
         }
 
-        return ChatMessage.create(chatData, { rollMode: chatRollMode });
+        const createOptions = CONFIG.ChatMessage?.modes ? { messageMode: chatRollMode } : { rollMode: chatRollMode };
+        return ChatMessage.create(chatData, createOptions);
     }
+
 
     static async createChatCard(actor, title, roll, label = "Result") {
         return this.createProfessionalChatCard({
@@ -923,9 +936,10 @@ export class ActionHandler {
 
     // ===== GATEWAY METHODS (called from HUD) =====
 
-    static async rollWeapon(weaponId, actor) {
-        await this.configureAttack(weaponId, actor);
+    static async rollWeapon(weaponId, actor, options = {}) {
+        await this.configureAttack(weaponId, actor, options);
     }
+
 
     static async castSpell(spellId, actor) {
         await this.executeSpellCast(spellId, actor);
