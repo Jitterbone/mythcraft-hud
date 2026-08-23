@@ -1,8 +1,8 @@
-# Mythcraft HUD Module (v1.0.1) 🐲
+# MythCraft HUD Module (v1.0.1) 🐲
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
-A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
+A modular, persistent, and highly-integrated contextual HUD for the **MythCraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
 
 > 💡 **Sister Module Recommendation**:
 > For a completely automated and enhanced MythCraft experience, pair this HUD with the [MythCraft Essence Sheet](https://foundryvtt.com/packages/mythcraft-essence-sheet) module!
@@ -51,12 +51,12 @@ A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft*
 
 ### Activation
 1. In your game world, go to "Game Settings" -> "Manage Modules".
-2. Find "Mythcraft HUD" in the list and check the box to enable it.
+2. Find "MythCraft HUD" in the list and check the box to enable it.
 3. Save your module settings and the world will reload.
 
-## Mythcraft Data Path Compatibility
+## MythCraft Data Path Compatibility
 
-The module is built specifically for the **Mythcraft** system and uses these data paths:
+The module is built specifically for the **MythCraft** system and uses these data paths:
 
 ### Actor Data
 - `system.hp` - Hit Points (value, max)
@@ -100,7 +100,7 @@ For weapon attacks, a **Tactical Modifiers** dialog will appear, allowing you to
 
 ## Compatibility
 
-- **System**: Mythcraft v0.6.4+
+- **System**: MythCraft v0.6.4+
 - **Foundry VTT**: v13+ / v14
 - **Dice So Nice!**: Supported for 3D dice rolls (optional).
 
