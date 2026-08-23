@@ -962,12 +962,12 @@ export class ActionHandler {
         ui.notifications.info(`Refunded ${spCost} SP to ${actor.name}.`);
     }
 
-    static async rollDamage(formula, type, actorUuid) {
+    static async rollDamage(formula, type, actorUuid, options = {}) {
         const actor = await fromUuid(actorUuid);
         
         // Resolve @ attributes
         let resolvedFormula = formula;
-        if (formula.includes("@")) {
+        if (formula && formula.includes("@") && actor) {
             resolvedFormula = formula.replace(/@([a-zA-Z0-9_]+)/g, (match, key) => {
                 return this.getAttributeValue(actor, key);
             });
@@ -975,7 +975,13 @@ export class ActionHandler {
 
         const typeParam = type ? ` type=${type.toLowerCase()}` : '';
         const content = `[[/damage ${resolvedFormula}${typeParam}]]`;
-        await ui.chat.processMessage(content);
+        
+        const defaultMode = game.settings.settings.has("core.messageMode") 
+            ? game.settings.get("core", "messageMode") 
+            : game.settings.get("core", "rollMode");
+        const rollMode = options.rollMode || defaultMode || "publicroll";
+
+        await ui.chat.processMessage(content, { rollMode });
     }
 
 }

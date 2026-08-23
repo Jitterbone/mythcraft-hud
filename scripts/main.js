@@ -679,7 +679,7 @@ Hooks.on("init", () => {
 
     // Template override for chat messages
     // Helper function to determine the label and flavor for a roll.
-    const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck", lp: "Luck" };
+    const attrNames = { str: "Strength", agi: "Agility", dex: "Dexterity", end: "Endurance", con: "Constitution", int: "Intelligence", awa: "Awareness", per: "Perception", wis: "Wisdom", cha: "Charisma", lck: "Luck", lp: "Luck", san: "Sanity" };
     const _attributeKeyFromFlavor = (rawFlavor) => {
         const lower = (rawFlavor || "").toLowerCase();
         for (const [key, value] of Object.entries(attrNames)) {
@@ -691,14 +691,19 @@ Hooks.on("init", () => {
     };
     const _normalizeAttributeFlavorText = (rawFlavor) => {
         if (!rawFlavor) return rawFlavor;
-        return rawFlavor.replace(/\b(STR|DEX|END|INT|AWA|CHA|LCK|LP)\b/gi, match => attrNames[match.toLowerCase()] || match);
+        return rawFlavor.replace(/\b(STR|DEX|END|INT|AWA|CHA|LCK|LP|SAN)\b/gi, match => attrNames[match.toLowerCase()] || match);
     };
-    const _formatAttributeFlavor = (rawFlavor, attrKey) => {
+    const _formatAttributeFlavor = (rawFlavor, attrKey, skillName) => {
         const key = attrKey || _attributeKeyFromFlavor(rawFlavor);
-        if (!key) return _normalizeAttributeFlavorText((rawFlavor || "").trim());
-        const fullName = attrNames[key];
-        if (!fullName) return _normalizeAttributeFlavorText((rawFlavor || "").trim());
-        return `${fullName} Check`;
+        const skill = skillName || (rawFlavor.match(/\(([^)]+)\)/)?.[1]);
+        let baseName = key ? (attrNames[key] || mythcraft?.CONFIG?.attributes?.list?.[key]?.label || key) : _normalizeAttributeFlavorText((rawFlavor || "").trim());
+        if (typeof baseName === "string" && baseName.endsWith(" Check")) {
+            baseName = baseName.replace(/\s*Check\s*$/i, "").trim();
+        }
+        if (skill) {
+            return `${baseName} Check (${skill})`;
+        }
+        return `${baseName} Check`;
     };
 
     const _getRollContext = (flavor, formula, rollOptions = {}, roll = {}) => {
@@ -707,12 +712,19 @@ Hooks.on("init", () => {
         const flavorLower = normalizedFlavor.toLowerCase();
 
         // 1. Mythcraft System AttributeRoll or explicit attribute option
-        if (roll.class === "AttributeRoll" || rollOptions.attribute) {
-            resultLabel = "ATTRIBUTE CHECK";
+        if (roll.class === "AttributeRoll" || rollOptions.attribute || roll.options?.attribute) {
+            resultLabel = (roll.options?.skill || rollOptions.skill) ? "SKILL CHECK" : "ATTRIBUTE CHECK";
             const attrKey = (roll.options?.attribute || rollOptions.attribute || "").toLowerCase();
-            if (attrKey) {
-                normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey);
+            const skillKey = (roll.options?.skill || rollOptions.skill || "");
+            let skillName = "";
+            if (skillKey && typeof mythcraft !== "undefined") {
+                const skillCfg = mythcraft.CONFIG?.skills?.list?.[skillKey];
+                if (skillCfg) {
+                    const loc = game.i18n.localize(skillCfg.label);
+                    skillName = (loc && !loc.startsWith("MYTHCRAFT.")) ? loc : (skillCfg.label || skillKey);
+                }
             }
+            normalizedFlavor = _formatAttributeFlavor(normalizedFlavor, attrKey, skillName);
             return { resultLabel, flavor: normalizedFlavor || "Attribute Check" };
         }
 
@@ -1097,6 +1109,7 @@ Hooks.on("init", () => {
 
             const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
             const chatRollMode = d.rollMode || message.rollMode || defaultMode || "publicroll";
+            const isBlind = chatRollMode === "blindroll" || Boolean(d.blind);
 
             const updateData = {};
             if (chatRollMode === "blindroll") {
@@ -1366,12 +1379,17 @@ Hooks.once("ready", async () => {
         const typeLabel = (type && type !== "damage") ? type.toUpperCase() : "DAMAGE";
         const flavor = isHeal ? "HEALING ROLL" : `${typeLabel} DAMAGE`;
 
-        const defaultMode = game.settings.settings.has("core.messageMode") 
-            ? game.settings.get("core", "messageMode") 
-            : game.settings.get("core", "rollMode");
-        const rollMode = defaultMode || "publicroll";
+        const msgEl = this.closest?.("[data-message-id]");
+        const parentMsg = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
+        let rollMode = parentMsg?.blind ? "blindroll" : (parentMsg?.whisper?.length ? "gmroll" : null);
+        if (!rollMode) {
+            const defaultMode = game.settings.settings.has("core.messageMode") 
+                ? game.settings.get("core", "messageMode") 
+                : game.settings.get("core", "rollMode");
+            rollMode = defaultMode || "publicroll";
+        }
 
-        await roll.toMessage({
+        const msgData = {
             speaker: ChatMessage.getSpeaker({ actor: actor }),
             flavor: flavor,
             flags: {
@@ -1382,7 +1400,9 @@ Hooks.once("ready", async () => {
                     processedAP: true // Do not deduct AP on damage rolls
                 }
             }
-        }, { rollMode });
+        };
+        ChatMessage.applyRollMode(msgData, rollMode);
+        await roll.toMessage(msgData, { rollMode });
     });
 
     // Listeners for Apply Buttons (Damage/Healing)
@@ -2009,46 +2029,164 @@ function calculateItemSP(item) {
 const VALID_DAMAGE_TYPES = [
     "sharp", "blunt", "cold", "corrosive", "fire", "lightning", 
     "toxic", "necrotic", "psychic", "radiant", "sonic", "acid",
-    "poison", "holy", "unholy", "force", "arcane", "bleed", "true",
-    "physical", "elemental", "energy", "direct", "magic", "magical", "damage"
+    "poison", "holy", "unholy", "force", "bleed", "true",
+    "physical", "elemental", "energy", "direct", "damage"
 ];
 
 function generateSpellEffectButtons(item, actor) {
     if (!item) return "";
     const desc = (item.system?.description?.value || item.system?.description || "");
-    const cleanDesc = desc.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ');
+    const cleanDesc = desc
+        .replace(/<\/(?:p|li|div|tr|h\d)>/gi, '\n')
+        .replace(/<br\s*\/?>/gi, '\n')
+        .replace(/<[^>]*>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/[ \t]+/g, ' ');
+
     let buttonsHtml = "";
     const foundFormulas = new Set();
     const actorUuid = actor?.uuid ?? "";
 
-    const createBtn = (formula, type, isHealing = false) => {
+    const createBtn = (formula, type, isHealing = false, customLabel = null) => {
         const rawType = (type || 'damage').toLowerCase();
         const typeLabel = rawType.toUpperCase();
-        const label = isHealing ? 'ROLL HEAL' : (rawType !== 'damage' ? `ROLL ${typeLabel} DAMAGE` : 'ROLL DAMAGE');
+        let label = customLabel;
+        if (!label) {
+            label = isHealing ? 'ROLL HEAL' : (rawType !== 'damage' ? `ROLL ${typeLabel} DAMAGE` : 'ROLL DAMAGE');
+        }
         const icon = isHealing ? 'fa-heart' : 'fa-bolt';
         const btnClass = isHealing ? 'healing' : 'damage';
         const color = isHealing ? '#2ecc71' : '#e74c3c';
         const bg = isHealing ? 'rgba(46, 204, 113, 0.15)' : 'rgba(231, 76, 60, 0.15)';
 
         return `
-            <div class="hud-action-button ${btnClass}" style="margin: 6px 0 2px 0;">
-                <button type="button" class="roll-spell-damage-btn" data-formula="${formula}" data-damage-type="${rawType}" data-is-heal="${isHealing}" data-actor-uuid="${actorUuid}" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: ${bg}; border: 1px solid ${color}; border-radius: 4px; color: #fdfaf3; font-family: inherit; font-size: 0.85rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease;">
-                    <span><i class="fas ${icon}" style="margin-right: 6px;"></i>${label}</span>
-                    <span style="font-family: monospace; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 3px; font-size: 0.82rem;">${formula}</span>
+            <div class="hud-action-button ${btnClass}" style="margin: 4px 0;">
+                <button type="button" class="roll-spell-damage-btn" data-formula="${formula}" data-damage-type="${rawType}" data-is-heal="${isHealing}" data-actor-uuid="${actorUuid}" style="width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: ${bg}; border: 1px solid ${color}; border-radius: 4px; color: #fdfaf3; font-family: inherit; font-size: 0.83rem; font-weight: bold; cursor: pointer; transition: all 0.2s ease;">
+                    <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><i class="fas ${icon}" style="margin-right: 6px;"></i>${label}</span>
+                    <span style="font-family: monospace; background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 3px; font-size: 0.82rem; white-space: nowrap; flex-shrink: 0; margin-left: 8px;">${formula}</span>
                 </button>
             </div>
         `;
     };
 
-    // 1. Primary damage from system if defined
-    const primaryDmg = item.system?.damage?.formula;
-    if (primaryDmg) {
-        const primaryType = item.system?.damage?.type || "damage";
-        foundFormulas.add(primaryDmg.trim().toLowerCase());
-        buttonsHtml += createBtn(primaryDmg, primaryType, false);
+    // 1. Detect base damage formula and damage type from item or description
+    let baseDamageType = item.system?.damage?.type || null;
+    let baseDamageFormula = item.system?.damage?.formula || null;
+
+    if (!baseDamageFormula) {
+        const inlineDmgMatch = cleanDesc.match(/\[\[\s*\/(?:damage|r|roll)\s+(\d+d\d+(?:\s*[+\-]\s*\d+)?)(?:\s+([a-zA-Z]+))?/i);
+        if (inlineDmgMatch) {
+            baseDamageFormula = inlineDmgMatch[1];
+            if (inlineDmgMatch[2] && VALID_DAMAGE_TYPES.includes(inlineDmgMatch[2].toLowerCase())) {
+                baseDamageType = inlineDmgMatch[2].toLowerCase();
+            }
+        }
     }
 
-    // 2. Comprehensive dice scraper: match ANY dice formula (\d+d\d+(?: [+-] ...))
+    if (!baseDamageFormula) {
+        const baseDmgMatch = cleanDesc.match(/(?:deal|deals|taking|takes|causing|causes|inflicts?)\s*(?:\[\[(?:\/r\s*)?(\d+d\d+(?:\s*[+\-]\s*\d+)?)\]\]|(\d+d\d+(?:\s*[+\-]\s*\d+)?))\s*([a-zA-Z]+)?\s*damage/i);
+        if (baseDmgMatch) {
+            baseDamageFormula = baseDmgMatch[1] || baseDmgMatch[2];
+            if (baseDmgMatch[3] && VALID_DAMAGE_TYPES.includes(baseDmgMatch[3].toLowerCase())) {
+                baseDamageType = baseDmgMatch[3].toLowerCase();
+            }
+        }
+    }
+    if (!baseDamageType) {
+        for (const dtype of VALID_DAMAGE_TYPES) {
+            if (dtype === "damage") continue;
+            const regex = new RegExp(`\\b${dtype}\\s+damage\\b`, 'i');
+            if (regex.test(cleanDesc)) {
+                baseDamageType = dtype;
+                break;
+            }
+        }
+    }
+    baseDamageType = baseDamageType || "damage";
+
+    // 2. Parse magic power scaling tiers (e.g. Arcane Power 18: +1d10 damage. or total: [[/r 2d10]])
+    let baseDiceCount = 1;
+    let baseDiceFaces = 10;
+    if (baseDamageFormula) {
+        const dfMatch = baseDamageFormula.match(/(\d+)d(\d+)/i);
+        if (dfMatch) {
+            baseDiceCount = parseInt(dfMatch[1], 10);
+            baseDiceFaces = parseInt(dfMatch[2], 10);
+        }
+    }
+
+    const scalingTiers = [];
+    let accumulatedDiceCount = baseDiceCount;
+
+    const lines = cleanDesc.split(/[\n•;]+/);
+    for (const rawLine of lines) {
+        const line = rawLine.trim();
+        const lineMatch = line.match(/(?:([a-zA-Z]+)\s+)?Power\s+(\d+)\s*:\s*(.*)/i);
+        if (!lineMatch) continue;
+        const source = (lineMatch[1] || item.system?.magicSource || 'arcane').toLowerCase();
+        const powerReq = parseInt(lineMatch[2], 10);
+        const text = lineMatch[3];
+
+        const totalMatch = text.match(/total:\s*(?:\[\[(?:\/r\s*)?(\d+d\d+(?:\s*[+\-]\s*\d+)?)\]\]|(\d+d\d+(?:\s*[+\-]\s*\d+)?))/i);
+        const plusMatch = text.match(/\+\s*(?:\[\[(?:\/r\s*)?(\d+d\d+)\]\]|(\d+d\d+))\s*damage/i);
+
+        if (totalMatch) {
+            const totalFormula = totalMatch[1] || totalMatch[2];
+            scalingTiers.push({ source, powerReq, formula: totalFormula, label: `Power ${powerReq}` });
+        } else if (plusMatch) {
+            const extraDiceStr = plusMatch[1] || plusMatch[2];
+            const edMatch = extraDiceStr.match(/(\d+)d(\d+)/i);
+            if (edMatch) {
+                accumulatedDiceCount += parseInt(edMatch[1], 10);
+                scalingTiers.push({ source, powerReq, formula: `${accumulatedDiceCount}d${baseDiceFaces}`, label: `Power ${powerReq}` });
+            }
+        }
+    }
+
+    // 3. Render buttons based on Actor type
+    const isCharacter = actor?.type === "character";
+
+    if (scalingTiers.length > 0) {
+        if (isCharacter) {
+            // Automate scaled damage based on character's power level — EXACTLY ONE BUTTON for character
+            const magicSource = (item.system?.magicSource || scalingTiers[0]?.source || "arcane").toLowerCase();
+            const currentPower = Number(actor.system?.powerLevel?.[magicSource] ?? 0);
+
+            // Find highest unlocked tier
+            const qualifiedTiers = scalingTiers.filter(t => t.powerReq <= currentPower).sort((a, b) => b.powerReq - a.powerReq);
+            let activeFormula = baseDamageFormula || (baseDiceCount + "d" + baseDiceFaces);
+
+            if (qualifiedTiers.length > 0) {
+                const highest = qualifiedTiers[0];
+                activeFormula = highest.formula || activeFormula;
+            }
+
+            const typeLabel = baseDamageType !== 'damage' ? `ROLL ${baseDamageType.toUpperCase()} DAMAGE` : 'ROLL DAMAGE';
+            buttonsHtml += createBtn(activeFormula, baseDamageType, false, typeLabel);
+            return buttonsHtml;
+        } else {
+            // For NPCs: Give GM multiple buttons for each variation with clean formatting
+            if (baseDamageFormula) {
+                const typeLabel = baseDamageType !== 'damage' ? `ROLL ${baseDamageType.toUpperCase()} DAMAGE` : 'ROLL DAMAGE';
+                buttonsHtml += createBtn(baseDamageFormula, baseDamageType, false, `${typeLabel} (Base)`);
+                foundFormulas.add(baseDamageFormula.toLowerCase());
+            }
+            for (const tier of scalingTiers) {
+                if (tier.formula && !foundFormulas.has(tier.formula.toLowerCase())) {
+                    const typeLabel = baseDamageType !== 'damage' ? `ROLL ${baseDamageType.toUpperCase()} DAMAGE` : 'ROLL DAMAGE';
+                    buttonsHtml += createBtn(tier.formula, baseDamageType, false, `${typeLabel} (${tier.label})`);
+                    foundFormulas.add(tier.formula.toLowerCase());
+                }
+            }
+            return buttonsHtml;
+        }
+    } else if (baseDamageFormula) {
+        const typeLabel = baseDamageType !== 'damage' ? `ROLL ${baseDamageType.toUpperCase()} DAMAGE` : 'ROLL DAMAGE';
+        buttonsHtml += createBtn(baseDamageFormula, baseDamageType, false, typeLabel);
+        foundFormulas.add(baseDamageFormula.toLowerCase());
+    }
+
+    // 4. Secondary dice scraper fallback for non-scaling spells (e.g. healing)
     const diceRegex = /\b(\d+d\d+(?:\s*[+\-]\s*(?:\d+|@\w+|[a-zA-Z]+))?)\b/gi;
     let match;
     while ((match = diceRegex.exec(cleanDesc)) !== null) {
@@ -2059,6 +2197,11 @@ function generateSpellEffectButtons(item, actor) {
         const matchIndex = match.index;
         const afterText = cleanDesc.slice(matchIndex + match[0].length, matchIndex + match[0].length + 45).toLowerCase();
         const beforeText = cleanDesc.slice(Math.max(0, matchIndex - 35), matchIndex).toLowerCase();
+
+        // Avoid matching "Power ..." as damage
+        if (/power\s*\d+/i.test(beforeText) || /power\s*\d+/i.test(afterText)) {
+            continue;
+        }
 
         // Check for healing
         if (/heal|healing|restore|regain|hit\s*point|hp\b/.test(afterText) || /heal|healing|restore|regain/.test(beforeText)) {
@@ -2077,7 +2220,6 @@ function generateSpellEffectButtons(item, actor) {
             }
         }
 
-        // If a damage type was found near this dice formula, register the button!
         if (detectedType) {
             foundFormulas.add(formulaKey);
             buttonsHtml += createBtn(formula, detectedType, false);
