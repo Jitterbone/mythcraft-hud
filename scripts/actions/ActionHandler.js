@@ -700,6 +700,13 @@ export class ActionHandler {
                 changes.push(`Fully restored HP to ${hp.max}.`);
                 if (sp) changes.push(`Fully restored SP to ${sp.max}.`);
 
+                if (actor.type === "character") {
+                    const luck = Number(system?.attributes?.luck?.value ?? system?.attributes?.luck ?? 0);
+                    const maxLp = Math.max(0, Math.floor(luck / 2));
+                    updates['system.lp.value'] = maxLp;
+                    changes.push(`Fully restored Luck Points to ${maxLp}.`);
+                }
+
                 const fatigueEffect = actor.effects.find(e => e.name?.toLowerCase() === 'fatigued');
                 if (fatigueEffect) {
                     await fatigueEffect.delete();
