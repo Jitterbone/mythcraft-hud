@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-23
+
+### Added
+- **Combat Movement AP Automation**: Moving tokens during active combat automatically tracks movement strides and deducts AP based on character speed (`auto`, `prompt`, `disabled`).
+- **Sheet Attack & Action AP Deduction**: Attack rolls and item actions taken from character sheets automatically evaluate the item's APC and deduct AP during combat (`auto`, `prompt`, `disabled`).
+- **Automatic Spell SP Deduction**: Casting spells from the HUD or sheet automatically calculates and deducts SP in or out of combat (`auto`, `prompt`, `disabled`).
+- **Enforce AP & SP Limits**: Added dedicated automation settings (`enforceAP`, `enforceSP`) to prevent player characters from taking actions, casting spells, or moving tokens without sufficient resources (GMs are fully exempt).
+- **1-Click Spell Damage & Healing**: Automatically scrapes damage and healing formulas directly from spell descriptions, rendering 1-click roll buttons on spell chat cards with slot animations and "APPLY DAMAGE/HEALING" buttons.
+- **End-of-Combat AP Restoration**: Automatically restores all player character AP to their full maximum when combat ends.
+- **Settings Category Headers**: Organized module settings into clean, dedicated `🎨 Theming` and `🤖 Automations` subcategories.
+
+### Fixed
+- **Non-Attack Spell Interception**: Spells that do not call for a magic attack roll no longer roll a default d20, cleanly outputting a formatted spell card with full description and resource costs.
+- **Spell Description Post Exemption**: Differentiated between casting a spell and posting its description to chat from the sheet so description posts never consume SP or trigger limit errors.
+- **Forward-Only Initiative AP**: Prevented reactive AP from triggering when combat initiative moves backward in the turn tracker.
+- **Canvas Token Guard**: Guarded canvas token lookups during early chat batch rendering to prevent errors before canvas initialization.
+
 ## [1.0.0] - 2026-08-21
 
 ### Added

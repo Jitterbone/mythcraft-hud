@@ -1,8 +1,11 @@
-# Mythcraft HUD Module (v1.0.0) 🐲
+# Mythcraft HUD Module (v1.0.1) 🐲
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
 A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft** system in Foundry VTT. This module replaces the default hotbar with a dynamic interface that provides immediate access to your character's most important actions and information.
+
+> 💡 **Sister Module Recommendation**:
+> For a completely automated and enhanced MythCraft experience, pair this HUD with the [MythCraft Essence Sheet](https://foundryvtt.com/packages/mythcraft-essence-sheet) module!
 
 ## ✨ Features
 
@@ -10,21 +13,26 @@ A modular, persistent, and highly-integrated contextual HUD for the **Mythcraft*
 -   **📊 Real-Time Resource Tracking**: Always know your `HP`, `AP` (Action Points), and `SP` (Spell Points) at a glance.
 -   **⚡ Quick Action Menus**: Expandable menus give you one-click access to:
     -   ⚔️ **Weapons**: With automatic AP cost calculation and warnings.
-    -   🔮 **Spells**: With automatic SP deduction and a handy refund button.
+    -   🔮 **Spells**: With automatic SP deduction and 1-click damage/healing buttons.
     -   🌟 **Features & Talents**: For both PCs and NPCs.
     -   🎲 **Skills & Saves**: Quick, rollable buttons for every skill and save.
 -   **👤 Actor-Aware Interface**:
     -   Shows the selected token's portrait.
     -   Provides a **GM Character Switcher** to quickly swap between player characters.
     -   Displays a token's current AP on the canvas during combat.
--   **🎨 Unified Chat Cards**: All rolls from the HUD or character sheet are intercepted and reformatted into beautiful, easy-to-read chat cards. No more plain white system messages!
--   **🤖 Smart Action Processing**:
-    -   **Attack Modifiers**: A tactical dialog to add advantage, disadvantage, or extra damage to your attacks.
-    -   **Automatic Crits**: Automatically calculates critical damage for weapon attacks.
+-   **🎨 Unified Chat Cards & Animated Rolls**: All rolls from the HUD or character sheet are intercepted and reformatted into animated slot-machine style chat cards with 1-click damage and healing applications.
+-   **🤖 Complete Combat Automations**:
+    -   **Movement AP Tracking**: Token movement in combat automatically tracks strides and consumes AP according to character speed.
+    -   **Sheet Attack & Action AP**: Rolling attacks or actions directly from the character sheet automatically deducts item APC during combat.
+    -   **Automatic Spell SP Deduction**: Casting spells from the HUD or sheet deducts SP in or out of combat.
+    -   **Resource Limit Enforcement**: Optional settings to prevent players from taking actions, casting spells, or moving tokens if they lack sufficient AP/SP (GMs exempt).
+    -   **End-of-Combat AP Restoration**: Automatically restores all player character AP when combat concludes.
+    -   **Tactical Modifiers & Automatic Crits**: Tactical dialog to add advantage, disadvantage, or extra damage dice before rolling.
     -   **Multiattack Parsing**: Intelligently reads NPC multiattack descriptions and injects clickable action buttons directly into the chat card.
--   **⚙️ Configuration**:
-    -   Adjust the HUD scale to fit your screen.
-    -   Disable dice roll sounds for a quieter experience.
+-   **⚙️ Theming & Configuration**:
+    -   Adjust HUD scale to fit your screen (`Small`, `Medium`, `Large`, `Extra Large`).
+    -   Configure roll animation durations and toggle dice sounds.
+    -   Fully modular automation settings (`Automatic`, `Prompt Confirmation`, `Disabled`).
 -   **🛌 Rest Integration**: A dedicated menu to handle the system's `Breath`, `Recoup`, and `Rest` actions, automatically applying their effects.
 
 ## 🚀 Installation

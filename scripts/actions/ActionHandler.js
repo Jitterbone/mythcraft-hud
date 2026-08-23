@@ -361,9 +361,14 @@ export class ActionHandler {
         // 1. Attack Detection
         let shouldRoll = false;
         let bonus = "";
+        let detectedDef = item.system?.defenseTarget || item.system?.defense || (isWeapon ? "ar" : "");
 
-        if (item.type === "spell") {
-            // Spells ONLY roll dice if the description explicitly specifies "make a magic attack roll" (magic is mandatory)
+        const sysToHit = item.system?.attackBonus ?? item.system?.toHit ?? item.system?.attackModifier;
+        if (sysToHit !== undefined && sysToHit !== null && sysToHit !== "" && Number(sysToHit) !== 0) {
+            shouldRoll = true;
+            bonus = String(sysToHit);
+        } else if (item.type === "spell") {
+            // Spells ONLY roll dice if the description explicitly specifies "make a magic attack roll"
             const cleanText = desc.replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
             const isMagicAttack = /make a(?:n)?\s+magic\s+attack\s+roll|make a(?:n)?\s+magic\s+attack|magic\s+attack\s+roll/.test(cleanText);
             if (isMagicAttack) {
@@ -372,8 +377,6 @@ export class ActionHandler {
                 const attrKey = (item.system.attr || defaultAttr).toLowerCase();
                 const attrVal = this.getAttributeValue(actor, attrKey);
                 bonus = (attrVal >= 0 ? "+" : "") + attrVal;
-            } else {
-                shouldRoll = false;
             }
         } else if (item.type === "weapon") {
             shouldRoll = true;
@@ -381,13 +384,24 @@ export class ActionHandler {
             const attrVal = this.getAttributeValue(actor, attrKey);
             bonus = (attrVal >= 0 ? "+" : "") + attrVal;
         } else {
-            const attackRegex = /(?:[Aa]ttack:?\s*|1d20\s*)([+-]?\s*\d+)/i;
-            const attackMatch = desc.match(attackRegex);
-            if (attackMatch) {
+            // Check for "+X vs DEF" (e.g. "+1 vs AR", "+5 vs REF")
+            const vsDefRegex = /(?:[Aa]ttack:?\s*|1d20\s*|\b)([+-]?\s*\d+)\s+vs\s+([A-Za-z]{2,4})/i;
+            const vsDefMatch = desc.match(vsDefRegex);
+            if (vsDefMatch) {
                 shouldRoll = true;
-                bonus = attackMatch[1].replace(/\s/g, '');
+                bonus = vsDefMatch[1].replace(/\s/g, '');
+                if (vsDefMatch[2]) detectedDef = vsDefMatch[2].toLowerCase();
+            } else {
+                const attackRegex = /(?:[Aa]ttack:?\s*|1d20\s*)([+-]?\s*\d+)/i;
+                const attackMatch = desc.match(attackRegex);
+                if (attackMatch) {
+                    shouldRoll = true;
+                    bonus = attackMatch[1].replace(/\s/g, '');
+                }
             }
         }
+
+        if (detectedDef) options.defenseTarget = detectedDef;
 
         // Apply Tactical Modifiers to the roll formula
         let roll = null;
@@ -427,14 +441,11 @@ export class ActionHandler {
 
             const modBonus = baseBonusVal + ta - td;
             const modBonusStr = (modBonus >= 0 ? "+" : "") + modBonus;
-            roll = new Roll(`1d20${modBonus !== 0 ? modBonusStr : ''}`);
+            
+            const AttackRollClass = globalThis.mythcraft?.rolls?.AttackRoll || Roll;
+            roll = new AttackRollClass(`1d20${modBonus !== 0 ? modBonusStr : ''}`, actor.getRollData());
             bonusValue = modBonus;
             bonusText = modBonusStr;
-        }
-
-        // NPC Feature Blind Roll Enforcement
-        if (actor.type === "npc" && (item.type === "feature" || item.type === "action")) {
-            options.rollMode = "blindroll";
         }
 
         if (roll) {
@@ -482,8 +493,6 @@ export class ActionHandler {
                 </div>`;
             }
         }
-
-        if (desc) extraHtml += `<div class="card-desc">${desc}</div>`;
 
         // 3. Secondary Effect Scraping (Smart Pre-processor)
         // Finds patterns like "5 (1d6+2) fire" or "1d6 healing"
@@ -607,10 +616,11 @@ export class ActionHandler {
             roll: roll,
             label: "ATTACK ROLL",
             icon: item.img,
+            description: desc,
             extraHtml: extraHtml,
             isSpell: isSpell,
             itemId: item.id,
-            defenseTarget: item.system?.defenseTarget || item.system?.defense || (isWeapon ? "ar" : undefined),
+            defenseTarget: options.defenseTarget || item.system?.defenseTarget || item.system?.defense || (isWeapon ? "ar" : undefined),
             spCost: options.spCost || 0,
             apCost: options.apCost || 0,
             spDeducted: options.spDeducted,
@@ -715,10 +725,23 @@ export class ActionHandler {
         const cardClass = isSpell ? "mythcraft-statblock spell-card" : "mythcraft-statblock";
         let content = `<div class="${cardClass}">`;
         
-        // Header
-        content += `<div class="card-header">`;
-        if (icon) content += `<img src="${icon}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px;" /> `;
-        content += `${title}</div>`;
+        const defTarget = data.defenseTarget ? String(data.defenseTarget).toUpperCase() : "";
+        let defBadgeHTML = "";
+        if (defTarget) {
+            const defIcons = { AR: "fa-shield", REF: "fa-person-running", FORT: "fa-shield-halved", ANT: "fa-eye", LOG: "fa-brain", WILL: "fa-fire" };
+            const iconClass = defIcons[defTarget] || "fa-shield";
+            defBadgeHTML = `<span class="defense-target-badge def-${defTarget.toLowerCase()}" style="display:inline-flex; align-items:center; gap:4px; padding:2px 6px; border-radius:3px; background:rgba(58,122,127,0.3); border:1px solid #3a7a7f; color:#9bd7e5; font-size:10px; font-weight:700; text-transform:uppercase;"><span style="color:#64748b; font-size:8px;">vs</span> <i class="fas ${iconClass}"></i> ${defTarget}</span>`;
+        }
+
+        // Header (Matches Essence Sheet layout)
+        content += `<div class="card-header" style="display: flex; align-items: center; justify-content: space-between; gap: 8px;">`;
+        content += `<div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;">`;
+        if (icon && icon !== "icons/svg/item-bag.svg" && !icon.endsWith("item-bag.svg") && actor.type !== "npc") {
+            content += `<img src="${icon}" style="border: 1px solid #a8d5e2; border-radius: 4px; height: 32px; width: 32px; object-fit: cover; margin-right: 8px; flex-shrink: 0;" /> `;
+        }
+        content += `<span class="card-title" style="font-family: 'Cinzel', serif; font-size: 14px; color: #FEEBB3; font-weight: 700;">${title}</span></div>`;
+        if (defBadgeHTML) content += defBadgeHTML;
+        content += `</div>`;
         
         // Resource Summary (Spells)
         if (isSpell) {
@@ -733,13 +756,7 @@ export class ActionHandler {
             content += `</div>`;
         }
 
-        // Description (Scrollable for spells)
-        if (description) {
-            const descClass = isSpell ? "card-desc scrollable" : "card-desc";
-            content += `<div class="${descClass}">${description}</div>`;
-        }
-
-        // Roll Result
+        // Roll Result (Placed on top directly beneath header)
         if (roll) {
             const resultBlock = `
                 <div class="roll-label">${resultLabel}</div>
@@ -752,8 +769,14 @@ export class ActionHandler {
                 </div>`;
         }
 
-        // Extra HTML (Targets, Buttons, etc)
+        // Extra HTML (Damage Buttons, target info, etc)
         if (extraHtml) content += extraHtml;
+
+        // Description (Placed cleanly at the bottom)
+        if (description) {
+            const descClass = isSpell ? "card-desc scrollable" : "card-desc";
+            content += `<div class="${descClass}" style="margin-top: 6px; font-style: italic; font-size: 11.5px; color: #cbd5e1;">${description}</div>`;
+        }
         
         content += `</div>`;
 
@@ -813,8 +836,10 @@ export class ActionHandler {
             }
         }
 
-        const createOptions = CONFIG.ChatMessage?.modes ? { messageMode: chatRollMode } : { rollMode: chatRollMode };
-        return ChatMessage.create(chatData, createOptions);
+        if (typeof ChatMessage.applyRollMode === "function" && chatRollMode) {
+            ChatMessage.applyRollMode(chatData, chatRollMode);
+        }
+        return ChatMessage.create(chatData, { rollMode: chatRollMode });
     }
 
 
