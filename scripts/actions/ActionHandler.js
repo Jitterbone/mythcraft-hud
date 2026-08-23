@@ -6,33 +6,57 @@ export class ActionHandler {
     
     // Helper: Calculate AP Cost for weapons/spells
     static calculateAPC(item, actor) {
-        // Prioritize a simple, direct AP cost if it exists.
-        const directCost = foundry.utils.getProperty(item, "system.apc");
-        if (directCost !== undefined && !isNaN(directCost)) {
-            return Number(directCost);
+        if (!item) return 3;
+
+        // 1. Check raw source first to avoid triggering buggy system getters on invalid formula strings
+        const rawApc = item._source?.system?.apc ?? item.system?._source?.apc;
+        if (typeof rawApc === "number" && !isNaN(rawApc) && rawApc > 0) {
+            return Number(rawApc);
         }
 
-        let formula = item.system.apcFormula;
-        if (!formula) return 3; // Default fallback
+        let formula = item._source?.system?.apcFormula ?? item.system?.apcFormula ?? item.system?.apc_formula;
+        if (!formula) {
+            const direct = item.system?.apc;
+            if (typeof direct === "number" && !isNaN(direct) && direct > 0) return direct;
+            return 3; // Default fallback
+        }
         
-        // Replace @attribute references with actual values
-        formula = formula.replace(/@(\w+)/g, (match, code) => {
-            return this.getAttributeValue(actor, code) || 0;
-        });
+        formula = String(formula).trim();
+
+        // Handle human-readable min/max notations like "8-STR, min 4" or "5-STR, min 2"
+        const minMatch = formula.match(/^(.*?)[,\s]+min\s+(\d+)$/i);
+        if (minMatch) {
+            const baseExpr = minMatch[1];
+            const minVal = minMatch[2];
+            formula = `Math.max(${baseExpr}, ${minVal})`;
+        }
+        const maxMatch = formula.match(/^(.*?)[,\s]+max\s+(\d+)$/i);
+        if (maxMatch) {
+            const baseExpr = maxMatch[1];
+            const maxVal = maxMatch[2];
+            formula = `Math.min(${baseExpr}, ${maxVal})`;
+        }
+
+        // Replace attribute references (e.g. STR, @STR, @str, DEX, etc.)
+        const attrs = ["str", "dex", "end", "con", "int", "awa", "per", "wis", "cha", "luck", "agi"];
+        for (const attr of attrs) {
+            const val = this.getAttributeValue(actor, attr) || 0;
+            const reg = new RegExp(`@?${attr}\\b`, 'gi');
+            formula = formula.replace(reg, val);
+        }
         
         // Allow Math functions
         formula = formula.replace(/max\(/g, "Math.max(");
         formula = formula.replace(/min\(/g, "Math.min(");
         
-       try {
+        try {
             const evalFunc = new Function('return ' + formula);
-            return evalFunc();
+            const res = Number(evalFunc());
+            if (Number.isFinite(res) && res > 0) return res;
         } catch (error) {
-            console.error(`Mythcraft HUD: Error calculating APC for ${item.name}: ${error.message}. Formula: ${formula}`);
-            // Provide user-friendly feedback
-            ui.notifications.error(`Invalid AP Cost formula for ${item.name}. See console for details.`);
-            return 3; // Fallback value
+            return 3;
         }
+        return 3;
     }
 
     // Helper: Get attribute value from actor
@@ -836,10 +860,12 @@ export class ActionHandler {
             }
         }
 
-        if (typeof ChatMessage.applyRollMode === "function" && chatRollMode) {
+        if (typeof ChatMessage.applyMode === "function" && chatRollMode) {
+            ChatMessage.applyMode(chatData, chatRollMode);
+        } else if (typeof ChatMessage.applyRollMode === "function" && chatRollMode) {
             ChatMessage.applyRollMode(chatData, chatRollMode);
         }
-        return ChatMessage.create(chatData, { rollMode: chatRollMode });
+        return ChatMessage.create(chatData, { messageMode: chatRollMode, rollMode: chatRollMode });
     }
 
 

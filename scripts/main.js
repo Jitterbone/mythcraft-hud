@@ -1943,9 +1943,16 @@ function findItemFromChatMessage(msg, actor) {
 function calculateItemAPC(item, actor) {
     if (!item) return 0;
 
-    // 1. Direct properties on item.system
+    // 1. ActionHandler calculation (handles raw formulas, min/max text, and safe attribute references)
+    if (ActionHandler && ActionHandler.calculateAPC) {
+        try {
+            const cost = ActionHandler.calculateAPC(item, actor);
+            if (Number.isFinite(cost) && cost > 0) return cost;
+        } catch (e) {}
+    }
+
+    // 2. Direct properties on item.system
     const directProps = [
-        "system.apc",
         "system.apc.value",
         "system.apCost",
         "system.apCost.value",
@@ -1962,18 +1969,16 @@ function calculateItemAPC(item, actor) {
         }
     }
 
-    // 2. ActionHandler calculation
-    if (ActionHandler && ActionHandler.calculateAPC) {
-        try {
-            const cost = ActionHandler.calculateAPC(item, actor);
-            if (Number.isFinite(cost) && cost > 0) return cost;
-        } catch (e) {}
-    }
-
     // 3. Dynamic formula evaluation
-    let formula = item.system?.apcFormula || item.system?.apc_formula;
+    let formula = item._source?.system?.apcFormula || item.system?.apcFormula || item.system?.apc_formula;
     if (formula && actor) {
-        formula = String(formula).replace(/@(\w+)/g, (match, code) => {
+        formula = String(formula).trim();
+        const minMatch = formula.match(/^(.*?)[,\s]+min\s+(\d+)$/i);
+        if (minMatch) formula = `Math.max(${minMatch[1]}, ${minMatch[2]})`;
+        const maxMatch = formula.match(/^(.*?)[,\s]+max\s+(\d+)$/i);
+        if (maxMatch) formula = `Math.min(${maxMatch[1]}, ${maxMatch[2]})`;
+
+        formula = formula.replace(/@(\w+)/g, (match, code) => {
             const attr = actor.system?.attributes?.[code]?.value ?? actor.system?.[code]?.value ?? actor.system?.[code] ?? 0;
             return Number(attr) || 0;
         });
