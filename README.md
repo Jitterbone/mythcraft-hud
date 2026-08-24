@@ -109,3 +109,9 @@ For weapon attacks, a **Tactical Modifiers** dialog will appear, allowing you to
 If you encounter a bug, have a feature request, or would like to support ongoing development:
 - 🐛 **GitHub Issues**: [Open an issue on GitHub](https://github.com/Jitterbone/mythcraft-hud/issues)
 - ☕ **Ko-fi**: [Support development on Ko-fi](https://ko-fi.com/jitterbone)
+
+---
+
+## ⚖️ Legal & Attribution
+
+This work is based on The MythCraft System by QuasiReal Publishing LLC and published using the Creative Commons Attribution 3.0 Unported license ([http://creativecommons.org/licenses/by/3.0/](http://creativecommons.org/licenses/by/3.0/)).
