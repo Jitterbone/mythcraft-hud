@@ -53,10 +53,11 @@ jobs:
           zip -r ./module.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
 
       - name: Create Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Version ${{ steps.module-version.outputs.version_number }}
           prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
+          overwrite: true
           files: |
             ./module.zip
             ./module.json

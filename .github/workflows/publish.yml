@@ -23,6 +23,7 @@ jobs:
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
         with:
+          overwrite: true
           files: |
             module.json
             module.zip
