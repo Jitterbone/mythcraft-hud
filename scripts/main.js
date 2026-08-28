@@ -590,6 +590,18 @@ Hooks.on("init", () => {
         requiresReload: true
     });
 
+    game.settings.register('mythcraft-hud', 'showCustomAttributes', {
+        name: "Show Custom Attributes in HUD",
+        hint: "Include custom character attributes (such as SAN / Sanity or homebrew attributes) in the HUD attribute bar.",
+        scope: "client",
+        config: true,
+        type: Boolean,
+        default: false,
+        onChange: () => {
+            if (game.mythHUD) game.mythHUD.render();
+        }
+    });
+
     // --- AUTOMATIONS SETTINGS ---
     game.settings.register('mythcraft-hud', 'turnAPMode', {
         name: "Turn Start & Reactive AP",

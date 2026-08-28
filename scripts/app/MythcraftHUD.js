@@ -436,18 +436,31 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
             hasSkills: (skillsByAttr[p.id]?.length || 0) > 0
         }));
 
-        // Add the uncategorized skills as a separate group if they exist.
-        // This ensures that even if a skill's attribute can't be determined, it still appears on the HUD.
-        if (skillsByAttr.uncategorized && skillsByAttr.uncategorized.length > 0) {
-            attributeList.push({
-                id: 'unc',
-                label: 'UNC',
-                value: '-',
-                defLabel: 'Misc',
-                defVal: '',
-                skills: skillsByAttr.uncategorized.sort((a, b) => a.label.localeCompare(b.label)),
-                hasSkills: true
-            });
+        // Check for Custom Attributes setting
+        const showCustom = Boolean(game.settings.settings.has('mythcraft-hud.showCustomAttributes') && game.settings.get('mythcraft-hud', 'showCustomAttributes'));
+
+        if (showCustom) {
+            const canonicalIds = new Set(['str', 'dex', 'end', 'int', 'awa', 'awr', 'cha', 'lck', 'lp', 'points']);
+            const actorAttrs = system.attributes || {};
+
+            for (const [attrKey, attrData] of Object.entries(actorAttrs)) {
+                const lowerKey = attrKey.toLowerCase().trim();
+                if (canonicalIds.has(lowerKey)) continue;
+
+                const attrVal = normalizeAttrValue(attrData);
+                const attrLabel = attrKey.toUpperCase();
+                const customSkills = (skillsByAttr[lowerKey] || []).sort((a, b) => a.label.localeCompare(b.label));
+
+                attributeList.push({
+                    id: lowerKey,
+                    label: attrLabel,
+                    value: formatMod(attrVal),
+                    defLabel: 'Mod',
+                    defVal: '',
+                    skills: customSkills,
+                    hasSkills: customSkills.length > 0
+                });
+            }
         }
 
         // We store this on the class so we can easily pass it to the list templates later
