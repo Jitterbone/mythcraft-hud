@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-08-30
+
+### Fixed
+- **Slowed Condition Movement Key**: Corrected ActiveEffect target key to `system.movement.walk` (fixing a crash caused by the legacy `system.movement.speed.value` path).
+- **Core Condition Identifiers**: Aligned condition IDs with the MythCraft system core model: `partialCover`, `totalCover`, `completeSurprise`, and `partialSurprise` (with aliases preserved for backward compatibility).
+
 ## [1.0.1] - 2026-08-23
 
 ### Added

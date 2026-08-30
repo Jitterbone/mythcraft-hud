@@ -1,4 +1,4 @@
-# MythCraft HUD Module (v1.0.1) 🐲
+# MythCraft HUD Module (v1.0.2) 🐲
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
