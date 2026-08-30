@@ -514,22 +514,22 @@ async function renderAnimatedRolls(message, html) {
 }
 
 Hooks.on("init", () => {
-    // Wipe whatever the system defines
-    CONFIG.statusEffects = [];
-    CONFIG.specialStatusEffects = {};
-
-    // Replace entirely with Mythcraft-HUD conditions
-    CONFIG.statusEffects = MythcraftConditions.map(c => ({
-        id: c.id,
-        name: c.label,
-        label: c.label,
-        description: c.description,
-        img: c.img,
-        icon: c.icon,
-        statuses: [c.id],
-        changes: c.changes,
-        flags: c.flags
-    }));
+    // If mythcraft-essence-sheet is active, it serves as the single source for condition definitions
+    if (!game.modules?.get('mythcraft-essence-sheet')?.active) {
+        CONFIG.statusEffects = [];
+        CONFIG.specialStatusEffects = {};
+        CONFIG.statusEffects = MythcraftConditions.map(c => ({
+            id: c.id,
+            name: c.label,
+            label: c.label,
+            description: c.description,
+            img: c.img,
+            icon: c.icon,
+            statuses: [c.id],
+            changes: c.changes,
+            flags: c.flags
+        }));
+    }
 
     Handlebars.registerHelper('capitalize', function (str) {
         if (typeof str !== 'string') return '';
@@ -978,7 +978,8 @@ Hooks.on("init", () => {
         }
 
         // Enforce SP & AP limits for players (GMs bypass)
-        if (!game.user.isGM) {
+        const hasEssenceAutomation = game.modules?.get('mythcraft-essence-sheet')?.active;
+        if (!game.user.isGM && !hasEssenceAutomation) {
             const actor = d.speaker?.actor ? game.actors?.get(d.speaker.actor) : (canvas?.tokens?.get ? canvas.tokens.get(d.speaker?.token)?.actor : null) || game.user?.character;
             if (actor && actor.type === 'character') {
                 const item = findItemFromChatMessage(d, actor);
@@ -1537,8 +1538,9 @@ Hooks.once("ready", async () => {
         });
 
         // Reactive AP & Turn Start AP Logic (GM Only)
+        const hasEssenceAutomation = game.modules?.get('mythcraft-essence-sheet')?.active;
         const turnAPSetting = game.settings.get('mythcraft-hud', 'turnAPMode') ?? 'auto';
-        if (turnAPSetting !== 'disabled' && game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
+        if (!hasEssenceAutomation && turnAPSetting !== 'disabled' && game.user.isGM && (updateData.turn !== undefined || updateData.round !== undefined)) {
             // Determine if combat initiative moved forward or backward
             const prevRound = combat.previous?.round ?? combat.round;
             const prevTurn = combat.previous?.turn ?? combat.turn;
@@ -1594,16 +1596,19 @@ Hooks.once("ready", async () => {
     });
 
     Hooks.on('deleteCombat', async (combat) => {
+        const hasEssenceAutomation = game.modules?.get('mythcraft-essence-sheet')?.active;
         // When combat ends, reset strides
         resetTurnMovementStride();
 
-        // Restore full AP for all character actors
-        const characters = game.actors?.filter(a => a.type === 'character') ?? [];
-        for (const actor of characters) {
-            const maxAP = Number(actor.system.ap?.max) || 0;
-            const currAP = Number(actor.system.ap?.value) || 0;
-            if (maxAP > 0 && currAP !== maxAP) {
-                await actor.update({ "system.ap.value": maxAP });
+        if (!hasEssenceAutomation) {
+            // Restore full AP for all character actors
+            const characters = game.actors?.filter(a => a.type === 'character') ?? [];
+            for (const actor of characters) {
+                const maxAP = Number(actor.system.ap?.max) || 0;
+                const currAP = Number(actor.system.ap?.value) || 0;
+                if (maxAP > 0 && currAP !== maxAP) {
+                    await actor.update({ "system.ap.value": maxAP });
+                }
             }
         }
 
@@ -1620,6 +1625,9 @@ Hooks.once("ready", async () => {
 
     // Reset stride budget, consume SP, and deduct Item APC when character takes an action / attack roll
     Hooks.on('createChatMessage', async (msg) => {
+        // If mythcraft-essence-sheet is active, it handles SP and AP deduction
+        if (game.modules?.get('mythcraft-essence-sheet')?.active) return;
+
         // Ensure this client is the one who created the message to prevent duplicate processing
         const isMyMessage = msg.isAuthor || (msg.author?.id ? msg.author.id === game.user.id : (msg.user?.id ? msg.user.id === game.user.id : msg.user === game.user.id));
         if (!isMyMessage) return;
@@ -1665,11 +1673,11 @@ Hooks.once("ready", async () => {
                     await applySPDeduction();
                 } else if (spMode === 'prompt') {
                     new Dialog({
-                        title: `Spell SP: ${actor.name}`,
+                        title: `Spell Cost: ${item.name}`,
                         content: `
                             <div style="font-family: inherit; font-size: 14px; padding: 8px;">
                                 <p style="margin-bottom: 8px;"><strong>${actor.name}</strong> cast <strong>${item.name}</strong>.</p>
-                                <p style="margin-bottom: 8px;">This spell costs <strong style="color: #3498db;">${spCost} SP</strong> (Current SP: <strong>${currentSP}</strong>).</p>
+                                <p style="margin-bottom: 8px;">This spell costs <strong style="color: #9b59b6;">${spCost} SP</strong> (Current SP: <strong>${currentSP}</strong>).</p>
                                 ${currentSP < spCost ? `<p style="color: #e74c3c; font-weight: bold; margin-bottom: 8px;">Warning: Insufficient SP remaining!</p>` : ''}
                                 <p style="margin-bottom: 0;">Do you want to deduct <strong>${spCost} SP</strong>?</p>
                             </div>
@@ -1771,8 +1779,9 @@ Hooks.once("ready", async () => {
             const dist = measureDistanceBetween(from, to);
             options.mythcraftMoveDist = dist;
 
-            // Enforce AP limit on token movement for players in combat
-            if (!game.user.isGM && game.settings.get('mythcraft-hud', 'enforceAP') && game.combat?.started) {
+            // Enforce AP limit on token movement for players in combat (skipped if mythcraft-essence-sheet handles it)
+            const hasEssenceAutomation = game.modules?.get('mythcraft-essence-sheet')?.active;
+            if (!hasEssenceAutomation && !game.user.isGM && game.settings.get('mythcraft-hud', 'enforceAP') && game.combat?.started) {
                 const combatant = game.combat.combatant;
                 if (combatant && combatant.tokenId === tokenDoc.id) {
                     const actor = tokenDoc.actor;
@@ -1799,6 +1808,8 @@ Hooks.once("ready", async () => {
     });
 
     Hooks.on('updateToken', async (tokenDoc, changes, options, userId) => {
+        // If mythcraft-essence-sheet is active, it handles movement AP deduction
+        if (game.modules?.get('mythcraft-essence-sheet')?.active) return;
         // Only process if this client initiated the token movement
         if (userId !== game.user.id) return;
         if (changes.x === undefined && changes.y === undefined) return;

@@ -79,12 +79,17 @@ export class ConditionHandler {
     }
 
     init() {
-        Hooks.on('preCreateActiveEffect', this.handlePreCreateActiveEffect.bind(this));
-        Hooks.on('createActiveEffect', this.handleCreateActiveEffect.bind(this));
-        Hooks.on('deleteActiveEffect', this.handleDeleteActiveEffect.bind(this));
-        Hooks.on('updateActiveEffect', this.handleUpdateActiveEffect.bind(this));
-        Hooks.on('updateCombat', this.handleUpdateCombat.bind(this));
-        Hooks.on('updateActor', this.handleUpdateActor.bind(this));
+        // Only run data automation if mythcraft-essence-sheet is NOT active (single source of automation)
+        const hasEssenceAutomation = game.modules?.get('mythcraft-essence-sheet')?.active;
+        if (!hasEssenceAutomation) {
+            Hooks.on('preCreateActiveEffect', this.handlePreCreateActiveEffect.bind(this));
+            Hooks.on('createActiveEffect', this.handleCreateActiveEffect.bind(this));
+            Hooks.on('deleteActiveEffect', this.handleDeleteActiveEffect.bind(this));
+            Hooks.on('updateActiveEffect', this.handleUpdateActiveEffect.bind(this));
+            Hooks.on('updateCombat', this.handleUpdateCombat.bind(this));
+            Hooks.on('updateActor', this.handleUpdateActor.bind(this));
+        }
+
         Hooks.on('renderTokenHUD', this.handleRenderTokenHUD.bind(this));
         Hooks.on("renderActiveEffectConfig", this.handleRenderActiveEffectConfig.bind(this));
 
