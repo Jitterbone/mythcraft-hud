@@ -96,16 +96,35 @@ export const mcConditions = [
     ],
   },
   {
+    id: 'partialCover',
+    label: 'Partial Cover',
+    img: 'modules/mythcraft-hud/icons/conditions/cover.svg',
+    icon: 'modules/mythcraft-hud/icons/conditions/cover.svg',
+    description: 'If at least 1⁄2 of your body is protected by an object that would block physical damage, then you have Partial Cover. Your AR and physical defenses gain between +1 and +3 against ranged attacks.',
+    changes: [
+        { key: 'system.defenses.ar', mode: MODE_ADD, value: "2" }
+    ],
+    flags: { "mythcraft-hud": { "partialCover": true, "cover": true } }
+  },
+  {
+    id: 'totalCover',
+    label: 'Total Cover',
+    img: 'modules/mythcraft-hud/icons/conditions/cover.svg',
+    icon: 'modules/mythcraft-hud/icons/conditions/cover.svg',
+    description: 'When you have Total Cover, you cannot be targeted by ranged attacks or any effect that requires Line of Sight to you.',
+    changes: [],
+    flags: { "mythcraft-hud": { "totalCover": true, "cover": true } }
+  },
+  {
     id: 'cover',
     label: 'Cover',
     img: 'modules/mythcraft-hud/icons/conditions/cover.svg',
     icon: 'modules/mythcraft-hud/icons/conditions/cover.svg',
     description: 'If at least 1⁄2 of your body is protected by an object that would block physical damage, then you have Partial Cover. Your AR and physical defenses gain between +1 and +3 against ranged attacks, determined by your MC and the amount of cover you have. When you have Total Cover, you cannot be targeted by ranged attacks or any effect that requires Line of Sight to you.',
     changes: [
-        { key: 'system.defenses.ar', mode: MODE_ADD, value: "1" },
-        { key: 'system.defenses.ref', mode: MODE_ADD, value: "1" },
-        { key: 'system.defenses.fort', mode: MODE_ADD, value: "1" }
-    ]
+        { key: 'system.defenses.ar', mode: MODE_ADD, value: "2" }
+    ],
+    flags: { "mythcraft-hud": { "cover": true, "partialCover": true } }
   },
   {
     id: 'dazed',
@@ -336,8 +355,9 @@ export const mcConditions = [
     icon: 'modules/mythcraft-hud/icons/conditions/slowed.svg',
     description: 'Your speed is halved.',
     changes: [
-      { key: 'system.movement.speed.value', mode: MODE_MULTIPLY, value: "0.5" }
-    ]
+      { key: 'system.movement.walk', mode: MODE_MULTIPLY, value: "0.5" }
+    ],
+    flags: { "mythcraft-hud": { "slowed": true } }
   },
   {
     id: 'staggered',
@@ -376,22 +396,40 @@ export const mcConditions = [
     flags: { "mythcraft-hud": { "suppressed": true } }
   },
   {
-    id: 'surprised-complete',
+    id: 'completeSurprise',
     label: 'Surprised (Complete)',
     img: 'modules/mythcraft-hud/icons/conditions/surprised(complete).svg',
     icon: 'modules/mythcraft-hud/icons/conditions/surprised(complete).svg',
     description: 'Complete Surprise only occurs when a creature attacks an enemy under all of the following conditions: The target does not perceive the attacker and is unaware of their presence. The target is not in a heightened state of awareness or on alert. For example, an alarm being raised, or being actively in combat, even if it is with a third party, disallows a full surprise round. In this instance, the creature who begins combat is granted double their AP and takes a single turn.',
     changes: [],
-    flags: { "mythcraft-hud": { "surprised": true } }
+    flags: { "mythcraft-hud": { "completeSurprise": true, "surprised": true } }
+  },
+  {
+    id: 'partialSurprise',
+    label: 'Surprised (Partial)',
+    img: 'modules/mythcraft-hud/icons/conditions/surprised(partial).svg',
+    icon: 'modules/mythcraft-hud/icons/conditions/surprised(partial).svg',
+    description: 'If creatures are Surprised, they do not act on the first round of Initiative and have TD on the second round. They cannot use reactive actions until after their first turn in which they can take action, and do not carry over AP until after their first turn in which they can take action.',
+    changes: [],
+    flags: { "mythcraft-hud": { "partialSurprise": true, "surprised": true } }
+  },
+  {
+    id: 'surprised-complete',
+    label: 'Surprised (Complete)',
+    img: 'modules/mythcraft-hud/icons/conditions/surprised(complete).svg',
+    icon: 'modules/mythcraft-hud/icons/conditions/surprised(complete).svg',
+    description: 'Complete Surprise.',
+    changes: [],
+    flags: { "mythcraft-hud": { "completeSurprise": true, "surprised": true } }
   },
   {
     id: 'surprised-partial',
     label: 'Surprised (Partial)',
     img: 'modules/mythcraft-hud/icons/conditions/surprised(partial).svg',
     icon: 'modules/mythcraft-hud/icons/conditions/surprised(partial).svg',
-    description: 'If creatures are Surprised, they do not act on the first round of Initiative and have TD on the second round. They cannot use reactive actions until after their first turn in which they can take action, and do not carry over AP until after their first turn in which they can take action.',
+    description: 'Partial Surprise.',
     changes: [],
-    flags: { "mythcraft-hud": { "surprised": true } }
+    flags: { "mythcraft-hud": { "partialSurprise": true, "surprised": true } }
   },
   {
     id: 'taunted',
