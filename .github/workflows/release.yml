@@ -3,7 +3,14 @@ name: Create Release and Package Module
 on:
   push:
     tags:
-      - 'v[0-9]+.[0-9]+.[0-9]+*' # Allow for suffixes like -beta
+      - 'v*'
+  release:
+    types: [published]
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.event.release.tag_name || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -15,38 +22,36 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get Module Version
-        id: module-version
+      - name: Get Module Version & Determine Tag
+        id: release-meta
+        shell: bash
         run: |
-          echo "version_number=$(jq -r .version module.json)" >> $GITHUB_OUTPUT
+          VERSION="$(jq -r .version module.json)"
+          echo "version_number=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Verify version matches tag
-        run: |
-          TAG_VERSION="${{ github.ref_name }}"
-          # Strip 'v' prefix from tag
-          TAG_VERSION="${TAG_VERSION#v}"
-          MODULE_VERSION="${{ steps.module-version.outputs.version_number }}"
-          if [[ "$TAG_VERSION" != "$MODULE_VERSION" ]]; then
-            echo "Tag version ($TAG_VERSION) does not match module.json version ($MODULE_VERSION)."
-            exit 1
+          TAG="${{ github.event.release.tag_name || github.ref_name }}"
+          if [[ -z "$TAG" || "$TAG" == "main" || "$TAG" == "master" || "$TAG" == "refs/heads/"* ]]; then
+            TAG="v${VERSION}"
           fi
-
-      - name: Check for Pre-release
-        id: prerelease-check
-        run: |
-          if [[ "${{ steps.module-version.outputs.version_number }}" == *-* ]]; then
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-          fi
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
 
       - name: Update Manifest and Download URLs
         shell: bash
         run: |
-          TAG="${{ github.ref_name }}"
-          jq --arg manifest "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.json" \
+          TAG="${{ steps.release-meta.outputs.tag_name }}"
+          jq --arg manifest "https://github.com/${{ github.repository }}/releases/latest/download/module.json" \
              --arg download "https://github.com/${{ github.repository }}/releases/download/${TAG}/module.zip" \
              '.manifest = $manifest | .download = $download' module.json > module.json.tmp && mv module.json.tmp module.json
+
+      - name: Check for Pre-release
+        id: prerelease-check
+        shell: bash
+        run: |
+          if [[ "${{ steps.release-meta.outputs.version_number }}" == *-* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Create ZIP package
         run: |
@@ -55,7 +60,8 @@ jobs:
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
         with:
-          name: Version ${{ steps.module-version.outputs.version_number }}
+          tag_name: ${{ steps.release-meta.outputs.tag_name }}
+          name: Version ${{ steps.release-meta.outputs.version_number }}
           prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
           overwrite: true
           files: |
