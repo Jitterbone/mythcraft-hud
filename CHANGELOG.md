@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-08-31
+
+### Changed
+- **Visual Overhaul Architecture**: Refocused MythCraft HUD as a pure visual overlay and pen-and-paper friendly UI tool for the MythCraft System.
+- **Removed Automated Constraints**: Stripped intrusive background AP/SP resource deductions, movement distance restrictions, and condition lifecycle automations from the HUD to support freeform pen-and-paper gameplay.
+- **Essence Sheet Integration**: Fully harmonized with the `mythcraft-essence-sheet` module as the single source for all system automation, condition engines, and resource management.
+
 ## [1.0.2] - 2026-08-30
 
 ### Fixed
