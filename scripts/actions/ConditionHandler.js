@@ -39,12 +39,10 @@ function renderRadialConditions(token) {
     const container = new PIXI.Container();
     container.name = "mythcraft-radial";
 
-    const total = statuses.length;
     const tokenRadius = Math.max(token.w, token.h) / 2;
     const orbitRadius = tokenRadius + 4;
     const centerX = token.w / 2;
     const centerY = token.h / 2;
-    // Icon size in canvas units
     const iconSize = 10;
     const ANGLE_STEP = 32;
 
@@ -62,7 +60,6 @@ function renderRadialConditions(token) {
         const sprite = new PIXI.Sprite(texture);
         sprite.width = iconSize;
         sprite.height = iconSize;
-        // Anchor to center of sprite
         sprite.anchor.set(0.5);
         sprite.x = x;
         sprite.y = y;
@@ -79,21 +76,10 @@ export class ConditionHandler {
     }
 
     init() {
-        // Only run data automation if mythcraft-essence-sheet is NOT active (single source of automation)
-        const hasEssenceAutomation = game.modules?.get('mythcraft-essence-sheet')?.active;
-        if (!hasEssenceAutomation) {
-            Hooks.on('preCreateActiveEffect', this.handlePreCreateActiveEffect.bind(this));
-            Hooks.on('createActiveEffect', this.handleCreateActiveEffect.bind(this));
-            Hooks.on('deleteActiveEffect', this.handleDeleteActiveEffect.bind(this));
-            Hooks.on('updateActiveEffect', this.handleUpdateActiveEffect.bind(this));
-            Hooks.on('updateCombat', this.handleUpdateCombat.bind(this));
-            Hooks.on('updateActor', this.handleUpdateActor.bind(this));
-        }
-
         Hooks.on('renderTokenHUD', this.handleRenderTokenHUD.bind(this));
         Hooks.on("renderActiveEffectConfig", this.handleRenderActiveEffectConfig.bind(this));
 
-        // PIXI-based radial condition hooks
+        // PIXI-based radial condition visual hooks
         Hooks.on("createActiveEffect", (effect) => {
             const token = effect.parent?.getActiveTokens?.()?.[0];
             if (token) debouncedRadial(token);
@@ -129,38 +115,6 @@ export class ConditionHandler {
         $(html).find(".effect-icon img").attr("src", condition.img);
     }
 
-    isMythcraftCondition(effect) {
-        if (!effect) return false;
-        // In V13+, the statuses set is the primary way to identify a status effect
-        const effectStatuses = effect.statuses;
-        if (!effectStatuses || effectStatuses.size === 0) return false;
-
-        const statusId = effectStatuses.values().next().value; // Get the first status ID
-        return CONFIG.statusEffects.some(se => se.id === statusId && se.flags?.['mythcraft-hud']);
-    }
-
-    handlePreCreateActiveEffect(effect, data, options, userId) {
-        // Get the statuses from either the effect or data
-        const statuses = effect.statuses || data.statuses || [];
-        const statusArray = Array.isArray(statuses) ? statuses : [...(statuses ?? [])];
-        
-        if (statusArray.length === 0) return;
-
-        const statusId = statusArray[0];
-        const condition = CONFIG.statusEffects.find(c => c.id === statusId);
-        
-        if (!condition) return;
-        if (!condition.flags?.['mythcraft-hud']) return;
-
-        // Ensure statuses are properly set as an array
-        effect.updateSource({ 
-            statuses: [statusId],
-            description: condition.description || effect.description || "",
-            img: condition.img,
-            icon: condition.img
-        });
-    }
-
     handleRenderTokenHUD(app, html, data) {
         const actor = app.object?.actor;
         if (!actor) return;
@@ -171,9 +125,9 @@ export class ConditionHandler {
         effectControls.each((i, el) => {
             const icon = $(el);
             const statusId = icon.data('status-id');
-            const condition = CONFIG.statusEffects.find(c => c.id === statusId);
+            const condition = MythcraftConditions.find(c => c.id === statusId) || CONFIG.statusEffects?.find(c => c.id === statusId);
 
-            if (!condition?.flags?.['mythcraft-hud']) return;
+            if (!condition) return;
 
             if (activeStatuses.has(statusId)) {
                 icon.addClass('mythcraft-active');
@@ -184,12 +138,11 @@ export class ConditionHandler {
             icon.on('click.mythcraft-hud', async (event) => {
                 event.preventDefault();
                 event.stopPropagation();
-                // Standard approach for Foundry V11+
                 if (actor.toggleStatusEffect) {
                     await actor.toggleStatusEffect(statusId);
                 } else if (app.object.document?.toggleActiveEffect) {
                     await app.object.document.toggleActiveEffect(condition);
-                } else if (app.object.toggleEffect) { // Backwards compatibility
+                } else if (app.object.toggleEffect) {
                     await app.object.toggleEffect(condition);
                 }
             });
@@ -205,163 +158,6 @@ export class ConditionHandler {
             icon.on('mouseleave.mythcraft-hud', () => {
                 conditionTooltip.hide();
             });
-        });
-    }
-
-    async handleCreateActiveEffect(effect, options, userId) {
-        if (game.userId !== userId) return;
-        if (!this.isMythcraftCondition(effect)) return;
-
-        const actor = effect.parent;
-        if (!actor) return;
-
-        const conditionId = effect.statuses.values().next().value;
-        if (!conditionId) return;
-
-        if (conditionId === 'rallied') {
-            await this.suppressConditions(actor, ['demoralized', 'frightened', 'shaken'], true);
-        }
-
-        if (['demoralized', 'frightened', 'shaken'].includes(conditionId)) {
-            if (actor.statuses.has('rallied')) {
-                await effect.update({ disabled: true });
-            }
-        }
-    }
-
-    async handleDeleteActiveEffect(effect, options, userId) {
-        if (game.userId !== userId) return;
-        if (!this.isMythcraftCondition(effect)) return;
-
-        const actor = effect.parent;
-        if (!actor) return;
-
-        const conditionId = effect.statuses.values().next().value;
-        if (!conditionId) return;
-
-        if (conditionId === 'rallied') {
-            await this.suppressConditions(actor, ['demoralized', 'frightened', 'shaken'], false);
-        }
-    }
-
-    async handleUpdateActiveEffect(effect, changes, options, userId) {
-        if (game.userId !== userId) return;
-        if (!this.isMythcraftCondition(effect)) return;
-
-        if (changes.disabled !== undefined) {
-            const actor = effect.parent;
-            const conditionId = effect.statuses.values().next().value;
-            if (conditionId === 'rallied') {
-                await this.suppressConditions(actor, ['demoralized', 'frightened', 'shaken'], !changes.disabled);
-            }
-        }
-    }
-
-    async handleUpdateCombat(combat, round, options, userId) {
-        const currentUserId = game.user?.id ?? game.userId;
-        if (currentUserId !== userId || !combat.combatant) return;
-
-        const actor = combat.combatant.actor;
-        if (!actor || actor.type !== 'character') return;
-
-        if (round.turn === undefined && round.round === undefined) return;
-
-        const dazed = actor.effects.some(e => !e.disabled && e.statuses.has('dazed')) || (actor.statuses.has('dazed') && !actor.effects.some(e => e.disabled && e.statuses.has('dazed')));
-        if (dazed) {
-            const currentAP = Number(actor.system.ap?.value) || 0;
-            if (currentAP > 3) {
-                await actor.update({ 'system.ap.value': 3 });
-                ui.notifications.info(`${actor.name} is Dazed (AP capped at 3).`);
-            }
-        }
-
-        const stunned = actor.effects.some(e => !e.disabled && e.statuses.has('stunned')) || (actor.statuses.has('stunned') && !actor.effects.some(e => e.disabled && e.statuses.has('stunned')));
-        if (stunned) {
-            const currentAP = Number(actor.system.ap?.value) || 0;
-            if (currentAP > 1) {
-                await actor.update({ 'system.ap.value': 1 });
-                ui.notifications.info(`${actor.name} is Stunned (AP capped at 1).`);
-            }
-        }
-
-        const prevTurn = (combat.turn === 0) ? combat.turns.length - 1 : combat.turn - 1;
-        const prevCombatant = combat.turns[prevTurn];
-        if (!prevCombatant || !prevCombatant.actor) return;
-
-        const prevActor = prevCombatant.actor;
-
-        if (prevActor.statuses.has('bleeding')) {
-            const effect = prevActor.effects.find(e => e.statuses.has('bleeding'));
-            const damage = effect?.flags['mythcraft-hud']?.bleedingValue || '1d4';
-            await this.applyDamage(prevActor, damage, 'physical');
-        }
-
-        if (prevActor.statuses.has('burning')) {
-            const effect = prevActor.effects.find(e => e.statuses.has('burning'));
-            const damage = effect?.flags['mythcraft-hud']?.burningValue || '1d4';
-            await this.applyDamage(prevActor, damage, 'fire');
-        }
-    }
-
-    async handleUpdateActor(actor, changes, options, userId) {
-        if (game.userId !== userId) return;
-
-        if (changes.system?.hp?.value !== undefined || changes.system?.hp?.max !== undefined) {
-            const maxHp = actor.system.hp.max;
-            const currentHp = actor.system.hp.value;
-            const isBloodied = maxHp > 0 && currentHp <= (maxHp / 2);
-            const hasBloodied = actor.statuses.has('bloodied');
-
-            if (isBloodied && !hasBloodied) {
-                if (actor.toggleStatusEffect) {
-                    await actor.toggleStatusEffect('bloodied', { active: true });
-                } else {
-                    const condition = CONFIG.statusEffects.find(se => se.id === 'bloodied');
-                    if (condition) {
-                        const effectData = {
-                            name: condition.label || condition.name || 'Bloodied',
-                            img: condition.img,
-                            icon: condition.img || condition.img,
-                            statuses: [condition.id],
-                            changes: condition.changes ?? [],
-                            flags: condition.flags || {}
-                        };
-                        await actor.createEmbeddedDocuments('ActiveEffect', [effectData]);
-                    }
-                }
-            } else if (!isBloodied && hasBloodied) {
-                if (actor.toggleStatusEffect) {
-                    await actor.toggleStatusEffect('bloodied', { active: false });
-                } else {
-                    const effectToRemove = actor.effects.find(e => e.statuses.has('bloodied'));
-                    if (effectToRemove) {
-                        await effectToRemove.delete();
-                    }
-                }
-            }
-        }
-    }
-
-    async suppressConditions(actor, conditionIds, disabled) {
-        for (const id of conditionIds) {
-            const effect = actor.effects.find(e => e.statuses.has(id));
-            if (effect && effect.disabled !== disabled) {
-                await effect.update({ disabled });
-            }
-        }
-    }
-
-    async applyDamage(actor, formula, type) {
-        const roll = new Roll(formula);
-        await roll.roll();
-
-        const currentHp = actor.system.hp.value;
-        const newHp = Math.max(0, currentHp - roll.total);
-        await actor.update({ 'system.hp.value': newHp });
-
-        ChatMessage.create({
-            speaker: ChatMessage.getSpeaker({ actor: actor }),
-            content: `${actor.name} takes ${roll.total} ${type} damage.`
         });
     }
 }

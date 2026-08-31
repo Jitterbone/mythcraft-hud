@@ -264,16 +264,6 @@ export class ActionHandler {
         if (options.apReduce) {
             apCost = Math.max(0, apCost - options.apReduce);
         }
-        
-        // Check AP availability
-        const currentAP = actor.system.ap?.value || 0;
-        if (actor.inCombat) {
-            if (apCost > currentAP) {
-                return ui.notifications.error(`Not enough AP! Need ${apCost}, have ${currentAP}.`);
-            }
-            const newAP = Math.max(0, currentAP - apCost);
-            await actor.update({ "system.ap.value": newAP });
-        }
 
         // Roll the weapon attack
         await this.executeUnifiedAction(weaponId, actor, options);
@@ -307,38 +297,10 @@ export class ActionHandler {
 
         const spCost = this.calculateItemSP(item);
         const apCost = this.calculateAPC(item, actor);
-        const currentSP = foundry.utils.getProperty(actor, "system.sp.value") ?? actor.system.sp?.value ?? 0;
-        const currentAP = Number(actor.system.ap?.value) || 0;
         const inCombat = game.combat?.started && (actor.inCombat || game.combat.combatants.some(c => c.actorId === actor.id));
 
-        // Check resource availability (Enforced for players, GMs bypass)
-        if (!game.user.isGM && game.settings.get('mythcraft-hud', 'enforceSP')) {
-            if (spCost > currentSP) {
-                return ui.notifications.error(`Cannot cast ${item.name}! Not enough SP (Needs ${spCost} SP, have ${currentSP} SP).`);
-            }
-        }
-
-        if (!game.user.isGM && inCombat && game.settings.get('mythcraft-hud', 'enforceAP')) {
-            if (apCost > currentAP) {
-                return ui.notifications.error(`Cannot cast ${item.name}! Not enough AP (Needs ${apCost} AP, have ${currentAP} AP).`);
-            }
-        }
-
-        // Auto-deduct resources
-        const spMode = game.settings.get('mythcraft-hud', 'spellSPMode') ?? 'auto';
-        if (spCost > 0 && spMode !== 'disabled') {
-            const newSP = Math.max(0, currentSP - spCost);
-            await actor.update({ "system.sp.value": newSP });
-            ui.notifications.info(`${actor.name} cast ${item.name} (${spCost} SP consumed, ${currentSP} \u2192 ${newSP} SP remaining).`);
-        }
-        if (apCost > 0 && inCombat) {
-            const newAP = Math.max(0, currentAP - apCost);
-            await actor.update({ "system.ap.value": newAP });
-            ui.notifications.info(`${actor.name} cast ${item.name} (${apCost} AP consumed, ${currentAP} \u2192 ${newAP} AP remaining).`);
-        }
-
         // Roll the spell with cost data passed for the chat card
-        await this.executeUnifiedAction(spellId, actor, { spCost, apCost: inCombat ? apCost : 0, spDeducted: true });
+        await this.executeUnifiedAction(spellId, actor, { spCost, apCost: inCombat ? apCost : 0 });
     }
 
     // ===== NPC SPELL CAST (Fast mode, doesn't close dialog) =====
@@ -1008,16 +970,9 @@ export class ActionHandler {
     }
 
     static async refundSP(actorUuid, spCost) {
-        const actor = await fromUuid(actorUuid);
-        if (!actor) return ui.notifications.warn("Actor not found for refund.");
-        
-        const currentSP = foundry.utils.getProperty(actor, "system.sp.value") || 0;
-        const maxSP = foundry.utils.getProperty(actor, "system.sp.max") || 0;
-        
-        const newSP = Math.min(maxSP, currentSP + spCost);
-        await actor.update({ "system.sp.value": newSP });
-        
-        ui.notifications.info(`Refunded ${spCost} SP to ${actor.name}.`);
+        if (globalThis.mythcraftEssenceSheet?.refundSP) {
+            return globalThis.mythcraftEssenceSheet.refundSP(actorUuid, spCost);
+        }
     }
 
     static async rollDamage(formula, type, actorUuid, options = {}) {

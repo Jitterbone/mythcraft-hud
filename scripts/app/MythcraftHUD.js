@@ -1136,51 +1136,24 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         switch (restType) {
             case 'breath':
                 restName = 'is Catching their Breath';
-                featureItem = restFeatures.breathFeature;
-                changes = await ActionHandler.executeRest(actor, restType);
+                featureItem = restFeatures?.breathFeature;
+                if (globalThis.mythcraftEssenceSheet?.executeRest) {
+                    changes = await globalThis.mythcraftEssenceSheet.executeRest(actor, 'breath');
+                }
                 break;
             case 'recoup':
                 restName = 'is Recouping';
-                featureItem = restFeatures.recoupFeature;
-
-                // Custom logic for Recoup based on detailed rules.
-                const updates = {};
-
-                // 1. HP Gain (only if Bloodied)
-                const maxHP = actor.system.hp.max;
-                const currentHP = actor.system.hp.value;
-                const bloodiedThreshold = Math.floor(maxHP / 2);
-
-                if (currentHP <= bloodiedThreshold) {
-                    const potentialHPRestored = Math.floor(maxHP / 4);
-                    // HP cannot be restored above the bloodied threshold.
-                    const maxPossibleHP = bloodiedThreshold;
-                    const actualHPRestored = Math.min(potentialHPRestored, maxPossibleHP - currentHP);
-
-                    if (actualHPRestored > 0) {
-                        updates['system.hp.value'] = currentHP + actualHPRestored;
-                        changes.push(`Regained ${actualHPRestored} HP.`);
-                    }
+                featureItem = restFeatures?.recoupFeature;
+                if (globalThis.mythcraftEssenceSheet?.executeRest) {
+                    changes = await globalThis.mythcraftEssenceSheet.executeRest(actor, 'recoup');
                 }
-
-                // 2. Remove 1 Death Point
-                const currentDeath = actor.system.death?.value || 0;
-                if (currentDeath > 0) {
-                    updates['system.death.value'] = Math.max(0, currentDeath - 1);
-                    changes.push(`Removed 1 Death Point.`);
-                }
-
-                // 3. Include "Catch your Breath" effects
-                const breathChanges = await ActionHandler.executeRest(actor, 'breath');
-                changes.push(...breathChanges.filter(c => c)); // Add non-empty changes
-
-                // Apply all updates to the actor
-                if (Object.keys(updates).length > 0) await actor.update(updates);
                 break;
             case 'rest':
                 restName = 'is Taking a Rest';
-                featureItem = restFeatures.restFeature;
-                changes = await ActionHandler.executeRest(actor, restType);
+                featureItem = restFeatures?.restFeature;
+                if (globalThis.mythcraftEssenceSheet?.executeRest) {
+                    changes = await globalThis.mythcraftEssenceSheet.executeRest(actor, 'rest');
+                }
                 break;
         }
 
