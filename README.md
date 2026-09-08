@@ -1,4 +1,4 @@
-# MythCraft HUD Module (v1.0.3) 🐲
+# MythCraft HUD Module (v1.0.4) 🐲
 
 [![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
 
@@ -74,6 +74,11 @@ Click on any controlled token on the canvas. The HUD will immediately update to 
 - **Foundry VTT**: v13+ / v14
 - **Dice So Nice!**: Supported for 3D dice rolling.
 - **MythCraft Essence Sheet**: Fully compatible and recommended for complete rules automation!
+
+## Recent Updates (v1.0.4)
+
+- **Roll Privacy & Mode Compliance**: All weapon attacks, actions, spells, and damage rolls initiated from the HUD strictly honor active user and GM roll modes (Public Roll, Private to GM, Blind GM Roll, and Self Roll).
+- For complete historical updates, see the full [CHANGELOG.md](CHANGELOG.md).
 
 ---
 

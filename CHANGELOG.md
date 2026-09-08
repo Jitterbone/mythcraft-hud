@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-09-08
+
+### Fixed
+- **Roll Privacy & Mode Enforcement**: Fixed an issue where weapon attacks and actions rolled from the HUD only displayed to the rolling player or did not strictly follow the active roll mode. Implemented `getActiveRollMode` and `getMessageModeKey` resolvers that respect live chat input mode buttons and core settings (`publicroll`, `gmroll`, `blindroll`, `selfroll`).
+- **Damage Buttons & Spell Privacy**: 1-click damage roll buttons, chat cards, and d20 dice animations triggered from the HUD now strictly propagate and respect active user and GM roll privacy.
+
 ## [1.0.3] - 2026-08-31
 
 ### Changed
