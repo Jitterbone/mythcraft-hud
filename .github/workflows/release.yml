@@ -55,15 +55,18 @@ jobs:
 
       - name: Create ZIP package
         run: |
-          zip -r ./module.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore"
+          zip -r ./module.zip . -x ".git/*" ".github/*" "dist/*" ".gitignore" ".vscode/*"
 
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ steps.release-meta.outputs.tag_name }}
           name: Version ${{ steps.release-meta.outputs.version_number }}
           prerelease: ${{ steps.prerelease-check.outputs.is_prerelease }}
-          overwrite: true
+          generate_release_notes: true
+          fail_on_unmatched_files: true
           files: |
             ./module.zip
             ./module.json
