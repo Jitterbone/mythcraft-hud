@@ -1,7 +1,84 @@
 /**
- * Handles actions for the Mythcraft HUD
- * Integrates attack config, spell casting, and feature interactions
+ * Normalizes any roll mode string (legacy or modern) to canonical legacy keys:
+ * "publicroll", "gmroll", "blindroll", "selfroll".
+ * @param {string|null} mode
+ * @returns {"publicroll"|"gmroll"|"blindroll"|"selfroll"}
  */
+export function normalizeRollMode(mode) {
+    if (!mode) return "publicroll";
+    const m = String(mode).toLowerCase().trim();
+    if (m === "public" || m === "publicroll" || m === "roll" || m === "ic") return "publicroll";
+    if (m === "gm" || m === "gmroll") return "gmroll";
+    if (m === "blind" || m === "blindroll") return "blindroll";
+    if (m === "self" || m === "selfroll") return "selfroll";
+    return "publicroll";
+}
+
+/**
+ * Returns the Foundry V14/V12 messageMode string key for CONFIG.ChatMessage.modes.
+ * @param {string} normalizedMode
+ * @returns {"public"|"gm"|"blind"|"self"}
+ */
+export function getMessageModeKey(normalizedMode) {
+    switch (normalizedMode) {
+        case "gmroll": return "gm";
+        case "blindroll": return "blind";
+        case "selfroll": return "self";
+        case "publicroll":
+        default:
+            return "public";
+    }
+}
+
+/**
+ * Resolves the currently active roll mode for the user/GM.
+ * Respects explicit parameter, chat bar UI selection, core.messageMode, and core.rollMode.
+ * @param {string|null} [explicitMode=null]
+ * @returns {"publicroll"|"gmroll"|"blindroll"|"selfroll"}
+ */
+export function getActiveRollMode(explicitMode = null) {
+    if (explicitMode && explicitMode !== "null") {
+        return normalizeRollMode(explicitMode);
+    }
+
+    try {
+        // 1. Check live chat input buttons or select in UI
+        const activeBtn = document.querySelector("#chat-controls [data-action='messageMode'].selected, #chat-notifications [data-action='messageMode'].active, [data-action='messageMode'].active");
+        if (activeBtn?.dataset?.mode) {
+            return normalizeRollMode(activeBtn.dataset.mode);
+        }
+
+        const chatSelect = document.querySelector("#chat-controls select[name='rollMode']");
+        if (chatSelect?.value) {
+            return normalizeRollMode(chatSelect.value);
+        }
+
+        if (ui.chat?.element) {
+            const val = ui.chat.element[0]?.querySelector("select[name='rollMode']")?.value ||
+                        ui.chat.element.find?.("select[name='rollMode']")?.val?.();
+            if (val) return normalizeRollMode(val);
+        }
+    } catch (e) {
+        // Fall through
+    }
+
+    try {
+        // 2. Check game.settings core.messageMode (Foundry V12/V14)
+        if (game.settings?.settings?.has("core.messageMode")) {
+            const mode = game.settings.get("core", "messageMode");
+            if (mode) return normalizeRollMode(mode);
+        }
+
+        // 3. Check core.rollMode
+        const coreMode = game.settings?.get?.("core", "rollMode");
+        if (coreMode) return normalizeRollMode(coreMode);
+    } catch (e) {
+        // Fall through
+    }
+
+    return "publicroll";
+}
+
 export class ActionHandler {
     
     // Helper: Calculate AP Cost for weapons/spells
@@ -690,8 +767,7 @@ export class ActionHandler {
     static async createProfessionalChatCard(data) {
         const { actor, title, roll, label, icon, description, extraHtml, isSpell, spCost, apCost, spDeducted, rollMode } = data;
         
-        const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
-        const chatRollMode = rollMode || defaultMode;
+        const chatRollMode = getActiveRollMode(rollMode);
         const isBlind = chatRollMode === 'blindroll';
 
         let resultClass = "";
@@ -829,12 +905,13 @@ export class ActionHandler {
             }
         }
 
-        if (typeof ChatMessage.applyMode === "function" && chatRollMode) {
-            ChatMessage.applyMode(chatData, chatRollMode);
-        } else if (typeof ChatMessage.applyRollMode === "function" && chatRollMode) {
+        const msgModeKey = getMessageModeKey(chatRollMode);
+        if (typeof ChatMessage.applyMode === "function") {
+            ChatMessage.applyMode(chatData, msgModeKey);
+        } else if (typeof ChatMessage.applyRollMode === "function") {
             ChatMessage.applyRollMode(chatData, chatRollMode);
         }
-        return ChatMessage.create(chatData, { messageMode: chatRollMode, rollMode: chatRollMode });
+        return ChatMessage.create(chatData, { messageMode: msgModeKey, rollMode: chatRollMode });
     }
 
 
@@ -989,11 +1066,7 @@ export class ActionHandler {
         const typeParam = type ? ` type=${type.toLowerCase()}` : '';
         const content = `[[/damage ${resolvedFormula}${typeParam}]]`;
         
-        const defaultMode = game.settings.settings.has("core.messageMode") 
-            ? game.settings.get("core", "messageMode") 
-            : game.settings.get("core", "rollMode");
-        const rollMode = options.rollMode || defaultMode || "publicroll";
-
+        const rollMode = getActiveRollMode(options.rollMode);
         await ui.chat.processMessage(content, { rollMode });
     }
 

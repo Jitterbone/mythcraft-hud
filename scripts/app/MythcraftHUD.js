@@ -1052,8 +1052,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         const actor = this.targetActor;
         if (!actor) return;
         const itemId = event.currentTarget.dataset.itemId;
-        const isBlind = $(event.currentTarget).hasClass('injected-btn');
-        await ActionHandler.rollWeapon(itemId, actor, { rollMode: isBlind ? 'blindroll' : null });
+        await ActionHandler.rollWeapon(itemId, actor);
         if (actor.type !== 'npc') this.closeExpansion();
     }
 
@@ -1086,8 +1085,7 @@ export class MythcraftHUD extends HandlebarsApplicationMixin(ApplicationV2) {
         if (!actor) return;
         const itemId = event.currentTarget.dataset.itemId;
         if (itemId === "combat-routine-master") return;
-        const isBlind = $(event.currentTarget).hasClass('injected-btn');
-        ActionHandler.useAction(itemId, actor, { rollMode: isBlind ? 'blindroll' : null });
+        ActionHandler.useAction(itemId, actor);
         if (actor.type !== 'npc') this.closeExpansion();
     }
 

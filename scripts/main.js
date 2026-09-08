@@ -1,5 +1,5 @@
 import { MythcraftHUD } from './app/MythcraftHUD.js';
-import { ActionHandler } from './actions/ActionHandler.js';
+import { ActionHandler, getActiveRollMode, getMessageModeKey } from './actions/ActionHandler.js';
 import { mcConditions as MythcraftConditions } from './data/ConditionData.js';
 import { ConditionHandler } from './actions/ConditionHandler.js';
 import { conditionTooltip } from './app/ConditionTooltip.js';
@@ -999,8 +999,7 @@ Hooks.on("init", () => {
             const handlerContext = window.MythcraftHUD_getRollContext(d.flavor, formula, roll.options, roll);
             if (handlerContext?.flavor) flavor = handlerContext.flavor;
 
-            const defaultMode = game.settings.settings.has("core.messageMode") ? game.settings.get("core", "messageMode") : game.settings.get("core", "rollMode");
-            const chatRollMode = d.rollMode || message.rollMode || defaultMode || "publicroll";
+            const chatRollMode = getActiveRollMode(d.rollMode || message.rollMode);
             const isBlind = chatRollMode === "blindroll" || Boolean(d.blind);
 
             const updateData = {};
@@ -1013,7 +1012,7 @@ Hooks.on("init", () => {
             } else if (chatRollMode === "selfroll") {
                 updateData.whisper = [game.user.id];
                 updateData.blind = false;
-            } else if (chatRollMode === "publicroll" || chatRollMode === "roll") {
+            } else {
                 updateData.whisper = [];
                 updateData.blind = false;
             }
@@ -1274,12 +1273,7 @@ Hooks.once("ready", async () => {
         const msgEl = this.closest?.("[data-message-id]");
         const parentMsg = msgEl ? game.messages.get(msgEl.dataset.messageId) : null;
         let rollMode = parentMsg?.blind ? "blindroll" : (parentMsg?.whisper?.length ? "gmroll" : null);
-        if (!rollMode) {
-            const defaultMode = game.settings.settings.has("core.messageMode") 
-                ? game.settings.get("core", "messageMode") 
-                : game.settings.get("core", "rollMode");
-            rollMode = defaultMode || "publicroll";
-        }
+        rollMode = getActiveRollMode(rollMode);
 
         const msgData = {
             speaker: ChatMessage.getSpeaker({ actor: actor }),
