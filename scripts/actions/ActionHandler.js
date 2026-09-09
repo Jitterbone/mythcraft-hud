@@ -414,12 +414,6 @@ export class ActionHandler {
         const inCombat = game.combat?.started && (actor.inCombat || game.combat.combatants.some(c => c.actorId === actor.id));
         const apCost = this.calculateAPC(item, actor);
         const currentAP = Number(actor.system.ap?.value) || 0;
-
-        if (!game.user.isGM && inCombat && game.settings.get('mythcraft-hud', 'enforceAP') && !options.spDeducted) {
-            if (apCost > currentAP) {
-                return ui.notifications.error(`Cannot use ${item.name}! Not enough AP (Needs ${apCost} AP, have ${currentAP} AP).`);
-            }
-        }
         
         // 1. Attack Detection
         let shouldRoll = false;
@@ -538,7 +532,7 @@ export class ActionHandler {
                 const targetAR = targetActor?.system?.defenses?.ar ?? 10;
                 const isHit = roll.total >= targetAR;
 
-                const hideInfo = game.settings.get('mythcraft-hud', 'hideHitMissInfo');
+                const hideInfo = Boolean(game.settings?.settings?.has('mythcraft-hud.hideHitMissInfo') && game.settings.get('mythcraft-hud', 'hideHitMissInfo'));
                 const visibilityAttr = hideInfo ? 'data-visibility="gm"' : '';
 
                 // The content to be shown or hidden

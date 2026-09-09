@@ -585,6 +585,15 @@ Hooks.on("init", () => {
         }
     });
 
+    game.settings.register('mythcraft-hud', 'hideHitMissInfo', {
+        name: "Hide Hit/Miss Info from Players",
+        hint: "When enabled, the target AR and Hit/Miss result of an attack roll will only be visible to the GM.",
+        scope: "world",
+        config: true,
+        type: Boolean,
+        default: false,
+    });
+
     // 1. Dialog & Popup Overhaul (CSS Variables)
     const style = document.createElement('style');
     style.innerHTML = `
