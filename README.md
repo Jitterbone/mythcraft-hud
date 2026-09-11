@@ -1,6 +1,11 @@
 # MythCraft HUD Module (v1.0.4) 🐲
 
-[![Ko-fi](https://img.shields.io/badge/Ko--fi-Support%20Development-FF5E5B?style=flat&logo=kofi&logoColor=white)](https://ko-fi.com/jitterbone)
+[![Latest Release](https://img.shields.io/github/v/release/Jitterbone/mythcraft-hud?style=flat&logo=github&logoColor=white&color=22c55e&label=Latest%20Release)](https://github.com/Jitterbone/mythcraft-hud/releases/latest)
+[![Foundry VTT](https://img.shields.io/badge/Foundry%20VTT-v14%20Verified-ff6400?style=flat)](https://foundryvtt.com)
+[![Latest Release Installs](https://img.shields.io/github/downloads/Jitterbone/mythcraft-hud/latest/module.zip?displayAssetName=false&style=flat&logo=github&logoColor=white&color=38bdf8&label=Latest%20Release%20Installs)](https://github.com/Jitterbone/mythcraft-hud/releases/latest)
+[![Lifetime Installs](https://img.shields.io/github/downloads/Jitterbone/mythcraft-hud/module.zip?displayAssetName=false&style=flat&logo=github&logoColor=white&color=38bdf8&label=Lifetime%20Installs)](https://github.com/Jitterbone/mythcraft-hud/releases)
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/jitterbone)
 
 A visual overhaul and contextual heads-up display for the **MythCraft** system in Foundry VTT. Designed for groups who prefer a traditional, pen-and-paper style of playing, MythCraft HUD enhances your table's visuals, quick-action access, and dice rolling experience without intrusive background resource tracking or automated restrictions.
 
